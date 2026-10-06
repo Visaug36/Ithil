@@ -1,0 +1,559 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5467E57FDA45B0803B4FB7CF /* IthilCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 047EA19155A7EF37424A4ABA; };
+		AE9B8CF689A3C291A6428C70 /* IthilCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 047EA19155A7EF37424A4ABA; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FB2F5FC7A6E61F42AF2BCAB6 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 639DB63FA4212EEC5BC78F62;
+			proxyType = 1;
+			remoteGlobalIDString = 78A3C9C7ABEEE42BCDE894E1;
+			remoteInfo = IthilCore;
+		};
+		F0E7ECDFC5EDD8ECEDB685DC = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 639DB63FA4212EEC5BC78F62;
+			proxyType = 1;
+			remoteGlobalIDString = 78A3C9C7ABEEE42BCDE894E1;
+			remoteInfo = IthilCore;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		E0103C65D51A80B5A60C23C1 /* Ithil.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ithil.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		047EA19155A7EF37424A4ABA /* IthilCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IthilCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCB8EA763B91CC31F1D4ADC6 /* IthilCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IthilCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		062FD3C38E6882B71EA11CBA /* Ithil.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Ithil.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		03C78E40A3DEFF82FE445D23 /* Ithil */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Ithil;
+			sourceTree = "<group>";
+		};
+		7D120C967F480CB1E33E029A /* IthilCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IthilCore;
+			sourceTree = "<group>";
+		};
+		37FA70110ACC69CDCDBF6526 /* IthilCoreTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IthilCoreTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CABA6CB0593A99CB5EDA4513 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5467E57FDA45B0803B4FB7CF /* IthilCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEA7B10CD14E5CAF8161605F = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A8DD4BF102E7070251F2BB1F = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE9B8CF689A3C291A6428C70 /* IthilCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C796A1B420AE28CA9F0AAEE0 = {
+			isa = PBXGroup;
+			children = (
+				03C78E40A3DEFF82FE445D23 /* Ithil */,
+				7D120C967F480CB1E33E029A /* IthilCore */,
+				37FA70110ACC69CDCDBF6526 /* IthilCoreTests */,
+				EE9B21C59C88AB5F4B5BF43C /* Config */,
+				0D7F1125B93BEF89980BBE98 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EE9B21C59C88AB5F4B5BF43C /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				062FD3C38E6882B71EA11CBA /* Ithil.entitlements */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		0D7F1125B93BEF89980BBE98 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E0103C65D51A80B5A60C23C1 /* Ithil.app */,
+				047EA19155A7EF37424A4ABA /* IthilCore.framework */,
+				FCB8EA763B91CC31F1D4ADC6 /* IthilCoreTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5DE09F22443CE0A297E2E2C2 /* Ithil */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6D15276D458E2C01471AD83;
+			buildPhases = (
+				D35CAA045F5B625957E87DF2,
+				CABA6CB0593A99CB5EDA4513,
+				E4E13C08FE6AC36D39649956,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				29CBE51F1B6771610901DD3A,
+			);
+			fileSystemSynchronizedGroups = (
+				03C78E40A3DEFF82FE445D23,
+			);
+			name = Ithil;
+			packageProductDependencies = (
+			);
+			productName = Ithil;
+			productReference = E0103C65D51A80B5A60C23C1;
+			productType = "com.apple.product-type.application";
+		};
+		78A3C9C7ABEEE42BCDE894E1 /* IthilCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD40936B26477DEFC0305C93;
+			buildPhases = (
+				314D83044C2DB056B04A64A0,
+				BEA7B10CD14E5CAF8161605F,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7D120C967F480CB1E33E029A,
+			);
+			name = IthilCore;
+			packageProductDependencies = (
+			);
+			productName = IthilCore;
+			productReference = 047EA19155A7EF37424A4ABA;
+			productType = "com.apple.product-type.framework";
+		};
+		8DB5A3A17BDC221353EB8DDE /* IthilCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CBDCB40A9C23C6DED0F9F83C;
+			buildPhases = (
+				7EE269DE070540CA88012653,
+				A8DD4BF102E7070251F2BB1F,
+				F9F2EED8C2755D481E9E4C09,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3E3659090D2A91FCA1269DE3,
+			);
+			fileSystemSynchronizedGroups = (
+				37FA70110ACC69CDCDBF6526,
+			);
+			name = IthilCoreTests;
+			packageProductDependencies = (
+			);
+			productName = IthilCoreTests;
+			productReference = FCB8EA763B91CC31F1D4ADC6;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		639DB63FA4212EEC5BC78F62 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					5DE09F22443CE0A297E2E2C2 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					78A3C9C7ABEEE42BCDE894E1 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					8DB5A3A17BDC221353EB8DDE = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = 8C1BFB977AEE12A64E8475BA;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C796A1B420AE28CA9F0AAEE0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0D7F1125B93BEF89980BBE98 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5DE09F22443CE0A297E2E2C2 /* Ithil */,
+				78A3C9C7ABEEE42BCDE894E1 /* IthilCore */,
+				8DB5A3A17BDC221353EB8DDE /* IthilCoreTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E4E13C08FE6AC36D39649956 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9F2EED8C2755D481E9E4C09 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D35CAA045F5B625957E87DF2 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		314D83044C2DB056B04A64A0 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7EE269DE070540CA88012653 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		29CBE51F1B6771610901DD3A = {
+			isa = PBXTargetDependency;
+			target = 78A3C9C7ABEEE42BCDE894E1;
+			targetProxy = FB2F5FC7A6E61F42AF2BCAB6;
+		};
+		3E3659090D2A91FCA1269DE3 = {
+			isa = PBXTargetDependency;
+			target = 78A3C9C7ABEEE42BCDE894E1;
+			targetProxy = F0E7ECDFC5EDD8ECEDB685DC;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BDA1F7994135F87482C9E434 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B265FDE55C1DF96F791D187F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		166C4285E2A6F4BBE535CFCD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Ithil.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Ithil;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Visaug36. MIT License.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.Ithil;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		82F419399908CD141E1D63BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Ithil.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Ithil;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Visaug36. MIT License.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.Ithil;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		8A5FFBABFCCBC1A256878D93 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = NO;
+				ENABLE_MODULE_VERIFIER = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.IthilCore;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+			};
+			name = Debug;
+		};
+		E98C56B205FBDF2C30DB814A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = NO;
+				ENABLE_MODULE_VERIFIER = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.IthilCore;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+			};
+			name = Release;
+		};
+		66C90ACAF579B227E2161590 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.IthilCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Debug;
+		};
+		E985EAB44F7152FB2ECCD91D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.visaug36.IthilCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8C1BFB977AEE12A64E8475BA = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BDA1F7994135F87482C9E434 /* Debug */,
+				B265FDE55C1DF96F791D187F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B6D15276D458E2C01471AD83 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				166C4285E2A6F4BBE535CFCD /* Debug */,
+				82F419399908CD141E1D63BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CD40936B26477DEFC0305C93 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A5FFBABFCCBC1A256878D93 /* Debug */,
+				E98C56B205FBDF2C30DB814A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CBDCB40A9C23C6DED0F9F83C = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				66C90ACAF579B227E2161590 /* Debug */,
+				E985EAB44F7152FB2ECCD91D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 639DB63FA4212EEC5BC78F62 /* Project object */;
+}
