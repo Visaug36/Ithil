@@ -60,6 +60,23 @@ jobs:
           echo "Files changed by the build (e.g. String Catalog sync):"
           git status --porcelain
 
+      - name: Show test failures
+        if: failure()
+        run: |
+          [ -d build/TestResults.xcresult ] || exit 0
+          xcrun xcresulttool get test-results tests --path build/TestResults.xcresult --compact \
+            | python3 -c '
+          import json, sys
+          def walk(node, path):
+              name = node.get("name", "")
+              if node.get("nodeType") == "Failure Message":
+                  print("FAIL", " / ".join(path), "::", name)
+              for child in node.get("children", []):
+                  walk(child, path + [name] if node.get("nodeType") in ("Test Case", "Test Suite") else path)
+          for root in json.load(sys.stdin).get("testNodes", []):
+              walk(root, [])
+          '
+
       - name: Build Release (universal)
         run: |
           set -o pipefail

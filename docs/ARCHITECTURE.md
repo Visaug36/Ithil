@@ -331,3 +331,163 @@ events, placed in the Monday-start week containing `now`. The app's `-demo` laun
 temporary folder; `-demoNow 2026-10-06T13:50` additionally pins the clock for screenshots. Every ID is fixed
 (`4954484C-DE30-4000-8000-00000000GGNN`: group 00 library, 01 subjects, 02 events), so equal arguments give
 equal libraries. Weekly classes repeat forever; timed events have a 10-minute alert.
+
+## App layer (`Ithil/`)
+
+Phase 2 files and their owners. Shared types are declared once, by the owner listed; everyone else uses
+them exactly as specified here.
+
+```
+Ithil/
+  IthilApp.swift                 App: scenes, commands, environment wiring           (shell)
+  App/LaunchOptions.swift        -demo, -demoNow parsing                              (shell)
+  App/AppModel.swift             @Observable app model (below)                        (shell)
+  App/AppSettings.swift          @Observable UserDefaults-backed settings             (shell)
+  App/LibrarySaveQueue.swift     latest-wins background saver                         (shell)
+  App/FolderAccess.swift         security-scoped bookmarks, open/save panels          (shell)
+  App/ClockMonitor.swift         minute ticks, day change, time zone change, wake     (shell)
+  App/Appearance.swift           Night / Dawn / Match System → NSApp.appearance       (shell)
+  Views/MainView.swift           switches on AppModel.state                           (shell)
+  Views/FolderSetup/*.swift      choose folder, folder missing, library problems      (shell)
+  Views/CalendarWindow.swift     NavigationSplitView + toolbar + .searchable          (sidebar)
+  Views/Toolbar/*.swift          title, ‹ Today ›, Day/Week/Month, + button           (sidebar)
+  Views/Sidebar/*.swift          mini month, Up next, Subjects                        (sidebar)
+  Views/Search/*.swift           search results + empty state                         (sidebar)
+  Views/Components/*.swift       SubjectStyle, SubjectDot, EventFormatting            (sidebar)
+  Views/Calendar/*.swift         TimeGrid (week/day), event blocks, now line, month   (calendar)
+  Views/Editor/*.swift           new/edit event popover                               (editor)
+  Views/Details/*.swift          event details popover                                (editor)
+  Views/QuickAdd/*.swift         Quick Add NSPanel + view                             (editor)
+  Views/Settings/*.swift         Settings window: General, Subjects, Files            (editor)
+```
+
+### `AppModel` (`@Observable @MainActor final class`, injected with `.environment(model)`)
+
+```swift
+enum LibraryState: Equatable {
+    case needsFolder                                // first launch
+    case loading
+    case ready
+    case folderMissing(path: String)                // bookmark broken or folder gone: "Locate or choose folder"
+    case noLibrary(path: String)                    // folder exists, no events.json, nothing to recover
+    case unreadable(path: String, message: String)  // corrupt and unrecoverable
+}
+
+private(set) var state: LibraryState
+private(set) var library: Library
+private(set) var isReadOnly: Bool                   // folder written by a newer Ithil
+var recoveryNotice: RecoveryReport?                 // set after a recovery; UI shows an alert, then sets nil
+var saveError: String?                              // last save failure; UI shows an alert, then sets nil
+private(set) var rootURL: URL?
+let isDemo: Bool
+
+private(set) var now: Date                          // ticks every minute, on wake, day change, time zone change
+private(set) var math: CalendarMath                 // display time zone + first weekday
+var today: CalendarDate { get }
+var timeZone: TimeZone { get }
+
+var span: CalendarSpan                              // default .week
+var selectedDate: CalendarDate                      // the day views are centered on
+var selectedOccurrenceID: Occurrence.ID?
+var searchText: String
+var visibleDays: [CalendarDate] { get }             // math.visibleDays(for: span, around: selectedDate)
+func goToToday()
+func step(_ count: Int)                             // ‹ / › by the current span
+func show(_ date: CalendarDate, span: CalendarSpan?)
+
+private(set) var hiddenSubjectIDs: Set<UUID>        // persisted per Mac
+func isVisible(_ subjectID: UUID?) -> Bool          // events without a subject are always visible
+func setVisible(_ visible: Bool, subjectID: UUID)
+func subject(for event: Event) -> Subject?
+func addSubject(_ subject: Subject)
+func updateSubject(_ subject: Subject)
+func deleteSubject(id: UUID)                        // its events keep existing with no subject
+
+func occurrences(in days: [CalendarDate]) -> [Occurrence]   // visible subjects only, sorted
+func occurrences(on day: CalendarDate) -> [Occurrence]
+var upNext: [Occurrence] { get }                            // next 4, visible subjects only
+var searchResults: [Occurrence] { get }                     // EventSearch over searchText
+func occurrence(id: Occurrence.ID) -> Occurrence?
+
+func newEvent(on day: CalendarDate, startMinute: Int?) -> Event   // 1 h, default alert, not yet added
+func add(_ event: Event)
+func update(_ occurrence: Occurrence, with edited: Event, scope: SeriesEditing.Scope)
+func delete(_ occurrence: Occurrence, scope: SeriesEditing.Scope)
+
+func useFolder(_ chosen: URL)                       // applies RootFolderPolicy, then creates or loads
+func startFresh()                                   // from .noLibrary: create an empty library there
+func retryLoad()
+func makeQuickAddParser() -> QuickAddParser
+
+var pendingEditorOccurrenceID: Occurrence.ID?       // set by Quick Add ⌘↩: the calendar opens its editor
+```
+
+Every mutation updates `library` immediately (the UI never waits) and hands a snapshot to
+`LibrarySaveQueue`, which saves on the `LibraryStore` actor. A newer snapshot replaces any pending one.
+
+### `AppSettings` (`@Observable @MainActor final class`, injected with `.environment(settings)`)
+
+```swift
+enum AppearanceChoice: String, CaseIterable { case night, dawn, system }
+var appearance: AppearanceChoice        // default .night
+var defaultAlert: AlertOffset?          // default 10 minutes
+var firstWeekday: Int?                  // nil = follow the locale; 1 = Sunday … 7 = Saturday
+var effectiveFirstWeekday: Int { get }
+```
+
+In `-demo` mode settings live in a throwaway `UserDefaults` suite, so nothing real is touched.
+
+### Shared view helpers (`Views/Components`)
+
+```swift
+enum SubjectStyle {
+    static func color(for subject: Subject?) -> Color          // palette asset or custom; textSecondary if nil
+    static func fill(for subject: Subject?, scheme: ColorScheme) -> Color     // 20 % Night / 15 % Dawn
+    static func border(for subject: Subject?, scheme: ColorScheme) -> Color   // ~35 %
+    static func text(for subject: Subject?, scheme: ColorScheme) -> Color     // AA-safe title color
+}
+struct SubjectDot: View { init(subject: Subject?, size: CGFloat = 8) }
+
+enum EventFormatting {
+    static func time(_ date: Date, timeZone: TimeZone) -> String                   // locale 12/24 h
+    static func timeRange(_ occurrence: Occurrence, timeZone: TimeZone) -> String  // "14:00 – 15:30"
+    static func longDate(_ day: CalendarDate, timeZone: TimeZone) -> String        // "Tuesday, 6 October"
+    static func dayAndTime(_ occurrence: Occurrence, timeZone: TimeZone) -> String // "Tuesday, 6 October · 14:00 – 15:30"
+    static func upNextSubtitle(_ occurrence: Occurrence, now: Date, math: CalendarMath) -> String
+        // "in 10 min · 14:00 · Room B204" / "Today · 17:00" / "Tomorrow · 09:00" / "Thursday · 10:00"
+    static func recurrence(_ event: Event, timeZone: TimeZone) -> String?          // "Every Tuesday"
+    static func alert(_ alert: AlertOffset?) -> String                             // "10 minutes before"
+    static func accessibilityLabel(_ occurrence: Occurrence, timeZone: TimeZone) -> String
+        // "Physics Lecture, 2 to 3:30 PM"
+}
+```
+
+### Views provided to each other
+
+```swift
+struct EventEditorView: View {                       // editor
+    enum Mode { case new(Event), edit(Occurrence) }
+    init(mode: Mode, onClose: @escaping () -> Void)
+}
+struct EventDetailsView: View {                      // editor
+    init(occurrence: Occurrence, onEdit: @escaping () -> Void, onClose: @escaping () -> Void)
+}
+@MainActor final class QuickAddPanelController {     // editor
+    static let shared: QuickAddPanelController
+    func toggle(model: AppModel, settings: AppSettings)
+    func show(model: AppModel, settings: AppSettings)
+}
+struct SettingsView: View { init() }                 // editor
+struct CalendarWindow: View { init() }               // sidebar: split view, toolbar, search, detail
+struct DayWeekView: View { init(days: [CalendarDate]) }   // calendar: time grid for 1 or 7 days
+struct MonthView: View { init(month: CalendarDate) }      // calendar: month of the given day
+struct EmptyStateView: View                          // existing
+```
+
+- Popovers: the calendar owns the event blocks and shows `EventDetailsView` (single click) and
+  `EventEditorView` (double-click, Return, or `pendingEditorOccurrenceID`) as `.popover` on the block.
+  The toolbar's + shows `EventEditorView(.new)` as a popover on the button. Editing a repeating occurrence
+  asks "This Event Only" / "All Future Events" with a `confirmationDialog` before saving or deleting.
+- Every user-facing string is a `LocalizedStringKey` / `String(localized:)` literal so it lands in
+  `Localizable.xcstrings`.
+- VoiceOver: every interactive element has a label; event blocks use `EventFormatting.accessibilityLabel`.

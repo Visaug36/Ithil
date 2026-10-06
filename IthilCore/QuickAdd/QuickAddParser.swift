@@ -100,9 +100,10 @@ public struct QuickAddParser: Sendable {
         guard let detector = try? NSDataDetector(types: types) else { return nil }
         let searchRange = NSRange(location: 0, length: text.utf16.count)
         for match in detector.matches(in: text, options: [], range: searchRange) {
-            guard let date = match.date, let range = Range(match.range, in: text) else { continue }
+            guard let date = match.date, let matched = Range(match.range, in: text) else { continue }
+            let range = trimmingLeadWords(of: matched, in: text)
             return DetectedDate(
-                nsRange: match.range,
+                nsRange: NSRange(range, in: text),
                 range: range,
                 date: date,
                 duration: match.duration,
@@ -110,6 +111,23 @@ public struct QuickAddParser: Sendable {
                 hasTime: mentionsTimeOfDay(String(text[range])))
         }
         return nil
+    }
+
+    /// Words NSDataDetector folds into a date phrase ("due friday") that belong to the title instead.
+    private static let titleWordsBeforeDate: Set<String> = ["due"]
+
+    /// `range` without leading words from `titleWordsBeforeDate`, so "essay due friday" keeps "due".
+    private static func trimmingLeadWords(of range: Range<String.Index>, in text: String) -> Range<String.Index> {
+        var start = range.lowerBound
+        while start < range.upperBound {
+            let rest = text[start..<range.upperBound]
+            guard let space = rest.firstIndex(where: { $0.isWhitespace }) else { break }
+            let word = rest[rest.startIndex..<space].lowercased()
+            guard titleWordsBeforeDate.contains(word) else { break }
+            guard let next = rest[space...].firstIndex(where: { !$0.isWhitespace }) else { break }
+            start = next
+        }
+        return start..<range.upperBound
     }
 
     private func eventTiming(for detection: DetectedDate) -> EventTiming {
