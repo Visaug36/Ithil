@@ -88,6 +88,7 @@ final class AppModel {
     @ObservationIgnored private var loadGeneration = 0
     /// Bumped whenever a library opens; reports from an earlier library's save queue are dropped.
     @ObservationIgnored private var librarySession = 0
+    @ObservationIgnored private var changeObservers: [WeakLibraryChangeObserver] = []
     @ObservationIgnored private var savedFolder: SavedFolder?
     /// The folder of the last open attempt, for "Start a New Calendar Here" and retries in demo mode.
     @ObservationIgnored private var attemptedRoot: URL?
@@ -195,7 +196,9 @@ final class AppModel {
         } else {
             updated.subjects.append(subject)
         }
+        let old = library
         commit(updated)
+        notifyObservers(.subjectsChanged, from: old)
     }
 
     func updateSubject(_ subject: Subject) {
@@ -203,7 +206,9 @@ final class AppModel {
         guard library.subjects[index] != subject else { return }
         var updated = library
         updated.subjects[index] = subject
+        let old = library
         commit(updated)
+        notifyObservers(.subjectsChanged, from: old)
     }
 
     /// Removes the subject. Its events keep existing with no subject.
@@ -216,7 +221,9 @@ final class AppModel {
             updated.events[index].subjectID = nil
             updated.events[index].modifiedAt = stamp
         }
+        let old = library
         commit(updated)
+        notifyObservers(.subjectsChanged, from: old)
         if hiddenSubjectIDs.contains(id) {
             hiddenSubjectIDs.remove(id)
             storeHiddenSubjectIDs()
@@ -379,7 +386,9 @@ final class AppModel {
         guard canEdit, !library.events.contains(where: { $0.id == event.id }) else { return }
         var updated = library
         updated.events.append(event)
+        let old = library
         commit(updated)
+        notifyObservers(.added(event), from: old)
     }
 
     func update(_ occurrence: Occurrence, with edited: Event, scope: SeriesEditing.Scope) {
@@ -387,7 +396,9 @@ final class AppModel {
         var updated = library
         SeriesEditing.update(occurrence, with: edited, scope: scope, in: &updated, now: timeSource.now)
         guard updated != library else { return }
+        let old = library
         commit(updated)
+        notifyObservers(.updated(occurrence, edited: edited, scope: scope), from: old)
         if selectedOccurrenceID == occurrence.id, self.occurrence(id: occurrence.id) == nil {
             // A rescheduled single event keeps its ID and moves to its new day.
             let moved = Occurrence.ID(eventID: occurrence.event.id, date: edited.timing.startDate)
@@ -400,7 +411,9 @@ final class AppModel {
         var updated = library
         SeriesEditing.delete(occurrence, scope: scope, from: &updated)
         guard updated != library else { return }
+        let old = library
         commit(updated)
+        notifyObservers(.deleted(occurrence, scope: scope), from: old)
         if let selected = selectedOccurrenceID, self.occurrence(id: selected) == nil {
             selectedOccurrenceID = nil
         }
@@ -461,6 +474,22 @@ final class AppModel {
             if !newValue {
                 folderError = nil
             }
+        }
+    }
+
+    // MARK: - Change observers
+
+    /// Registers an observer (held weakly) that hears about every library change from now on.
+    func addChangeObserver(_ observer: any LibraryChangeObserver) {
+        changeObservers.removeAll { $0.observer == nil || $0.observer === observer }
+        changeObservers.append(WeakLibraryChangeObserver(observer: observer))
+    }
+
+    private func notifyObservers(_ change: LibraryChange, from old: Library) {
+        changeObservers.removeAll { $0.observer == nil }
+        let current = library
+        for entry in changeObservers {
+            entry.observer?.libraryDidChange(change, from: old, to: current)
         }
     }
 
@@ -711,6 +740,7 @@ final class AppModel {
     private func didOpen(_ load: LibraryLoad, store: LibraryStore, root: URL, readOnly: Bool) {
         librarySession += 1
         let session = librarySession
+        let old = library
         library = load.library
         libraryRevision += 1
         lastFinishedSaveNumber = saveNumber
@@ -732,6 +762,7 @@ final class AppModel {
             rememberFolder(saved)
         }
         state = .ready
+        notifyObservers(.opened(root: root), from: old)
     }
 
     private func makeStore(root: URL, safetyDirectory: URL, knownLibraryID: UUID?) -> LibraryStore {
