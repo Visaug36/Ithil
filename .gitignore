@@ -1,0 +1,20 @@
+# Design export: never commit (contains a reference photo that isn't ours to publish)
+design-reference/
+*.zip
+
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Secrets
+*.p12
+*.cer
+*.mobileprovision
+.env
