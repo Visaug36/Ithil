@@ -57,6 +57,8 @@ jobs:
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             2>&1 | tee build/test.log
           grep -E "Test run with|tests? (passed|failed)|Executed [0-9]+ test" build/test.log || true
+          echo "Files changed by the build (e.g. String Catalog sync):"
+          git status --porcelain
 
       - name: Build Release (universal)
         run: |

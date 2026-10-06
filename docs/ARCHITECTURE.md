@@ -43,17 +43,28 @@ the precision events.json keeps.
 - If the wall-clock time doesn't exist on a day (spring-forward gap), the occurrence moves forward to the
   next valid time, as `Calendar` does.
 - **Edit this event only:** the occurrence's date is added to the series' `excludedDates`, and a new
-  non-repeating event with `detachedFrom = (seriesID, date)` takes its place.
+  non-repeating event with `detachedFrom = (seriesID, date)` takes its place (the copy never repeats,
+  whatever `edited.recurrence` says).
 - **Edit all future events:** the series ends the day before (`until = date - 1`), and a new series
-  starts at the edited occurrence. Detached events on or after the split move to the new series. Editing
-  from the first occurrence edits the whole series in place.
+  starts at the edited occurrence. Excluded dates and detached events on or after the split move to the
+  new series. If the edit moved the occurrence to another day, they move along with it (daily/weekly: by
+  the same number of days; monthly: by the same number of months, onto the new day of the month, dropped
+  if that month lacks it), so a cancelled or replaced occurrence never comes back on the new day. If the
+  new event doesn't repeat, those detached events become ordinary events (`detachedFrom = nil`).
+- Editing all future events from the **first occurrence** edits the whole series in place, keeping its
+  `id` and `createdAt`; if that moves it to another day, its excluded dates and its detached events' links
+  move along in the same way. An edit that changes nothing leaves the library untouched.
+- Non-repeating and detached events are replaced or removed by `id`, whatever the scope. Deleting a
+  detached event keeps its date excluded from the series.
 - **Delete this event only** adds the date to `excludedDates`. **Delete all future** ends the series the
-  day before and removes detached events from that day on. A series left with no occurrences is removed.
+  day before and removes detached events from that day on; from the first occurrence it removes the series
+  and all its detached events. A series left with no occurrences is removed (an in-place edit never
+  removes it). Deleting doesn't touch `modifiedAt` (there is no clock); edits stamp `modifiedAt = now`.
 
 ## Dates (`IthilCore/Dates`)
 
 ```swift
-public enum CalendarSpan: Sendable { case day, week, month }
+public enum CalendarSpan: Hashable, CaseIterable, Sendable { case day, week, month }
 
 public enum RelativeDay: Hashable, Sendable {
     case yesterday, today, tomorrow
@@ -79,6 +90,7 @@ public struct CalendarMath: Sendable {
 
 public struct OccurrenceExpander: Sendable {
     public init(displayTimeZone: TimeZone)
+    public let displayTimeZone: TimeZone                      // where all-day events are placed
     public func occurrences(of event: Event, in interval: DateInterval) -> [Occurrence]
     public func occurrences(of events: [Event], in interval: DateInterval) -> [Occurrence]   // sorted
     public func occurrence(of event: Event, on date: CalendarDate) -> Occurrence?
@@ -91,13 +103,14 @@ public struct DayLayout: Sendable {
         public var column: Int, columnCount: Int        // side-by-side columns for overlaps
         public var startMinute: Int, endMinute: Int     // 0…1440, clipped to the day
         public var continuesBefore: Bool, continuesAfter: Bool
+        public init(occurrence:column:columnCount:startMinute:endMinute:continuesBefore:continuesAfter:)
     }
     public static func layout(_ occurrences: [Occurrence], on day: CalendarDate, timeZone: TimeZone,
                               minimumMinutes: Int) -> [Item]
 }
 
 public enum SeriesEditing {
-    public enum Scope: Sendable { case thisEvent, allFutureEvents }
+    public enum Scope: Hashable, Sendable { case thisEvent, allFutureEvents }
     public static func update(_ occurrence: Occurrence, with edited: Event, scope: Scope,
                               in library: inout Library, now: Date)
     public static func delete(_ occurrence: Occurrence, scope: Scope, from library: inout Library)
@@ -113,9 +126,18 @@ public enum EventSearch {
 - Queries over 5,000 events must stay well under a frame. Non-repeating events are tested by interval
   overlap. Repeating events jump straight to the first candidate in the range (arithmetic on days or
   months) instead of walking from the series start.
-- `search` returns one row per matching event: its next upcoming occurrence (or, if none, its latest past
-  one). Upcoming rows come first, by start; then past rows, most recent first. Every whitespace-separated
-  term must match the title, location or notes (case- and diacritic-insensitive).
+- `search` returns one row per matching event: its next occurrence that hasn't ended (one in progress
+  counts), or, if none, its latest past one. Upcoming rows come first, by start; then past rows, most
+  recent first. Every whitespace-separated term must match the title, location or notes (case- and
+  diacritic-insensitive). A blank query: `matches` is true for every event, `search` returns nothing.
+- `monthGrid` is always 35 or 42 days (a February that fits in exactly 4 weeks gets a fifth row); months
+  outside 1…12 roll over. `firstWeekday` outside 1…7 wraps. `step(by: .month)` clamps to the month's last
+  day (31 Jan + 1 month = 28/29 Feb). `relativeDay` gives `laterThisWeek` for any day 2…6 ahead.
+- `upcoming` returns occurrences that start at or after `now` (in-progress ones are left out).
+- `DayLayout` leaves out all-day occurrences (they go in the all-day row). Blocks shorter than
+  `minimumMinutes` are drawn that tall (moved up near midnight), and overlap is judged on drawn blocks.
+- Internal helpers other IthilCore code may use: `OccurrenceDayMath` (integer day numbers on plain dates,
+  series-day enumeration) and `OccurrenceExpander.chronologicalOrder` / `overlaps(start:end:_:)`.
 
 ## Storage (`IthilCore/Storage`)
 
@@ -163,13 +185,23 @@ public struct LocalFileSystem: FileSystem { public init() }
 
 public enum LibraryCodec {
     public static let currentSchemaVersion: Int               // 1
+    public static let schemaMigrator: SchemaMigrator          // the real migrations (none yet)
     public static func encode(_ library: Library, savedAt: Date) throws -> Data   // pretty, sorted keys
     public static func decode(_ data: Data) throws -> DecodedLibrary              // runs migrations
+    public static func decode(_ data: Data, migrator: SchemaMigrator) throws -> DecodedLibrary   // tests
 }
-public struct DecodedLibrary: Sendable { public var library: Library; public var savedAt: Date?; public var schemaVersion: Int }
+public struct DecodedLibrary: Hashable, Sendable {
+    public var library: Library
+    public var savedAt: Date?
+    public var schemaVersion: Int                             // as written, before migration
+    public init(library: Library, savedAt: Date?, schemaVersion: Int)
+}
 
-public struct SchemaMigrator {   // JSON-object-level steps, version n → n+1
-    public init(currentVersion: Int, steps: [Int: @Sendable (inout [String: Any]) throws -> Void])
+public struct SchemaMigrator: Sendable {   // JSON-object-level steps, version n → n+1
+    public typealias Step = @Sendable (inout [String: Any]) throws -> Void
+    public let currentVersion: Int
+    public init(currentVersion: Int, steps: [Int: Step])
+    @discardableResult
     public func migrate(_ object: inout [String: Any]) throws -> Int   // returns the version it started at
 }
 
@@ -181,13 +213,22 @@ public enum LibraryStoreError: Error, Equatable, Sendable {
 }
 
 public struct RecoveryReport: Hashable, Sendable {
-    public enum Source: Hashable, Sendable { case backup(URL), safetyCopy(URL) }
+    public enum Source: Hashable, Sendable {
+        case backup(URL)
+        case safetyCopy(URL)
+        public var url: URL { get }
+    }
     public var source: Source
     public var recoveredSavedAt: Date?
-    public var damagedFileMovedTo: URL?
+    public var damagedFileMovedTo: URL?                       // nil when events.json was missing
+    public init(source: Source, recoveredSavedAt: Date?, damagedFileMovedTo: URL?)
 }
 
-public struct LibraryLoad: Sendable { public var library: Library; public var recovery: RecoveryReport? }
+public struct LibraryLoad: Hashable, Sendable {
+    public var library: Library
+    public var recovery: RecoveryReport?
+    public init(library: Library, recovery: RecoveryReport?)
+}
 
 public actor LibraryStore {
     public init(root: URL, safetyDirectory: URL, knownLibraryID: UUID?,
@@ -212,12 +253,27 @@ public enum RootFolderPolicy {
   candidates (backups and the safety copy for the known library ID), newest `savedAt` first. The first one
   that decodes wins: the damaged file is moved aside, the recovered library is written back, and a
   `RecoveryReport` is returned so the app can tell the user. No candidates → `noLibrary` (missing file) or
-  `unreadable`.
-- **Save:** if the newest backup is older than `backupInterval` (or there is none), copy the current
-  events.json into `backups/` first, then keep only the newest `maxBackups`. Write events.json atomically,
-  then write the same bytes to the safety copy. A failed safety copy is logged, not thrown.
+  `unreadable` (the damaged file is then left untouched). A read error counts as damage. Candidates from a
+  newer schema are skipped; on equal `savedAt` the newer backup wins and the safety copy comes last. The
+  winner's original bytes are written back. If the damaged file can't be moved aside, `load()` throws
+  `unreadable` rather than overwrite it.
+- **Missing root** (moved folder, unplugged drive): `load()` throws `noLibrary`; `create` and `save` throw
+  `CocoaError(.fileNoSuchFile)`. Nothing is written anywhere, so the folder is never recreated.
+- **Save:** unless a backup exists within `backupInterval` of now (either direction, so a clock set back
+  doesn't stop backups), copy the current events.json into `backups/` first, then keep only the newest
+  `maxBackups` (by name; `-2`, `-3`… within one second, always numbered past the highest one there). The
+  first save after loading an older schema always backs up. Write events.json atomically, then write the
+  same bytes to the safety copy. Failed backups, pruning and safety copies are logged, not thrown.
+- **Save without a successful `load()`/`create`** first checks the events.json it would replace: a newer
+  schema makes the store read-only (`readOnly`), a damaged file is set aside first.
+- **Create** refuses (`CocoaError(.fileWriteFileExists)`) when events.json already exists.
 - **Choosing a folder:** an empty folder or an existing Ithil folder is used as is. Any other folder gets an
-  `Ithil` subfolder (or `Ithil 2`, `Ithil 3`… if that name is taken by something else).
+  `Ithil` subfolder (or `Ithil 2`, `Ithil 3`… if that name is taken by something else; an existing empty
+  or Ithil `Ithil N` is reused). "Ithil folder" means it has a `.ithil` folder, even without events.json.
+  "Empty" ignores `.DS_Store`, `.localized`, `Icon\r`, `._*` and drive-root metadata. Throws if the chosen
+  folder doesn't exist.
+- Internal constants for other IthilCore code: `LibraryStore.metadataFolderName` (`.ithil`, e.g. to skip
+  it when scanning event folders), `eventsFileName`, `backupsFolderName`.
 
 ## Quick Add (`IthilCore/QuickAdd`)
 
@@ -231,11 +287,14 @@ public struct QuickAddDraft: Hashable, Sendable {
     public var alert: AlertOffset?
     public var hasDate: Bool
     public var hasTime: Bool
+    public init(title:timing:subjectID:matchedKeyword:highlightedRanges:alert:hasDate:hasTime:)   // defaults
 }
 
 public struct QuickAddParser: Sendable {
     public init(subjects: [Subject], timeZone: TimeZone, defaultDuration: TimeInterval,
                 defaultAlert: AlertOffset?)
+    public let subjects: [Subject], timeZone: TimeZone, defaultDuration: TimeInterval
+    public let defaultAlert: AlertOffset?
     public func parse(_ text: String, now: Date) -> QuickAddDraft?   // nil for blank input
     public func makeEvent(from draft: QuickAddDraft, fallbackTitle: String, now: Date) -> Event
 }
@@ -249,7 +308,15 @@ public struct QuickAddParser: Sendable {
   too) or any of its keywords. The longest match wins, and the word stays in the title.
 - Titles typed in all lowercase become title case, keeping small words ("with", "of", "and"…) lowercase
   unless they come first: `physics quiz` → `Physics Quiz`, `lunch with mara` → `Lunch with Mara`.
-  Anything with a capital letter is kept as typed.
+  Anything with a capital letter is kept as typed. The check looks at the title after the date text is
+  removed, so `bio exam Friday` still becomes `Bio Exam`.
+- Title cleanup also drops a connector right before the date (`at on from by until till @`), a lone
+  connector after it (`… tomorrow at`), and stray punctuation at both ends. Subjects are matched against
+  the cleaned title, so date words never pick a subject.
+- `alert` is `defaultAlert` for timed drafts and nil for all-day ones. All-day drafts are one day long.
+- NSDataDetector reads text in the Mac's current time zone. A detected wall-clock time is kept as that
+  wall-clock time in the parser's `timeZone`; a time with a named zone ("3pm EST") keeps its instant.
+  `NSDataDetector` isn't Sendable, so `parse` makes one per call.
 
 ## Demo (`IthilCore/Demo`)
 
@@ -261,4 +328,6 @@ public enum DemoLibrary {
 
 The design's sample subjects (Physics, Linear Algebra, Literature, Biology, Personal) and their week of
 events, placed in the Monday-start week containing `now`. The app's `-demo` launch argument loads it into a
-temporary folder; `-demoNow 2026-10-06T13:50` additionally pins the clock for screenshots.
+temporary folder; `-demoNow 2026-10-06T13:50` additionally pins the clock for screenshots. Every ID is fixed
+(`4954484C-DE30-4000-8000-00000000GGNN`: group 00 library, 01 subjects, 02 events), so equal arguments give
+equal libraries. Weekly classes repeat forever; timed events have a 10-minute alert.
