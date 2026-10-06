@@ -35,7 +35,15 @@ jobs:
           sw_vers
 
       - name: Lint (swift-format)
-        run: xcrun swift-format lint --strict --recursive --parallel Ithil IthilCore IthilCoreTests
+        run: |
+          paths="Ithil IthilCore IthilCoreTests"
+          if ! xcrun swift-format lint --strict --recursive --parallel $paths; then
+            echo "::group::Patch that swift-format would apply"
+            xcrun swift-format format --in-place --recursive --parallel $paths
+            git --no-pager diff
+            echo "::endgroup::"
+            exit 1
+          fi
 
       - name: Test (Debug)
         run: |
