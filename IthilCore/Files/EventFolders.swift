@@ -225,6 +225,13 @@ public actor EventFolders {
         refreshIndex(rescanningEverything: true)
     }
 
+    /// Every marked event folder in the root, keyed by the occurrence its marker names, after a full
+    /// rescan. The app uses it to carry folders along when a repeating event is edited or split.
+    public func markedFolders() -> [Occurrence.ID: URL] {
+        refreshIndex(rescanningEverything: true)
+        return index
+    }
+
     // MARK: - Containment
 
     /// Whether `url` is the root or inside it, after resolving `.`, `..` and symbolic links (in the

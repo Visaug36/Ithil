@@ -309,6 +309,21 @@ struct EventFoldersTests {
         sandbox.expectNothingWrittenOutsideRoot()
     }
 
+    @Test func markedFoldersListsEveryMarkedFolderWhereverItIs() async throws {
+        let sandbox = try EventFoldersSandbox()
+        defer { sandbox.remove() }
+        let lecture = Fixture.timed(1, "Physics Lecture", october: 6, at: 14)
+        let tuesday = Fixture.occurrence(of: lecture, october: 6)
+        let folder = try await sandbox.folders.ensureFolder(for: tuesday)
+        let renamed = sandbox.url("2026-10-06/Mechanics")
+        try FileManager.default.moveItem(at: folder, to: renamed)
+
+        let marked = await sandbox.folders.markedFolders()
+        #expect(marked.count == 1)
+        #expect(marked[tuesday.id]?.lastPathComponent == "Mechanics")
+        sandbox.expectNothingWrittenOutsideRoot()
+    }
+
     @Test func allDayOccurrencesGetFoldersWithoutATime() async throws {
         let sandbox = try EventFoldersSandbox()
         defer { sandbox.remove() }
