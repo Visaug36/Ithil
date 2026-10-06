@@ -35,7 +35,15 @@ jobs:
           sw_vers
 
       - name: Lint (swift-format)
-        run: xcrun swift-format lint --strict --recursive --parallel Ithil IthilCore IthilCoreTests
+        run: |
+          paths="Ithil IthilCore IthilCoreTests"
+          if ! xcrun swift-format lint --strict --recursive --parallel $paths; then
+            echo "::group::Patch that swift-format would apply"
+            xcrun swift-format format --in-place --recursive --parallel $paths
+            git --no-pager diff
+            echo "::endgroup::"
+            exit 1
+          fi
 
       - name: Test (Debug)
         run: |
@@ -49,6 +57,25 @@ jobs:
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             2>&1 | tee build/test.log
           grep -E "Test run with|tests? (passed|failed)|Executed [0-9]+ test" build/test.log || true
+          echo "Files changed by the build (e.g. String Catalog sync):"
+          git status --porcelain
+
+      - name: Show test failures
+        if: failure()
+        run: |
+          [ -d build/TestResults.xcresult ] || exit 0
+          xcrun xcresulttool get test-results tests --path build/TestResults.xcresult --compact \
+            | python3 -c '
+          import json, sys
+          def walk(node, path):
+              name = node.get("name", "")
+              if node.get("nodeType") == "Failure Message":
+                  print("FAIL", " / ".join(path), "::", name)
+              for child in node.get("children", []):
+                  walk(child, path + [name] if node.get("nodeType") in ("Test Case", "Test Suite") else path)
+          for root in json.load(sys.stdin).get("testNodes", []):
+              walk(root, [])
+          '
 
       - name: Build Release (universal)
         run: |
