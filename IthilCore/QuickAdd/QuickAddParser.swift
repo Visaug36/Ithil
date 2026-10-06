@@ -100,14 +100,30 @@ public struct QuickAddParser: Sendable {
         guard let detector = try? NSDataDetector(types: types) else { return nil }
         let searchRange = NSRange(location: 0, length: text.utf16.count)
         for match in detector.matches(in: text, options: [], range: searchRange) {
-            guard let date = match.date, let matched = Range(match.range, in: text) else { continue }
+            guard var date = match.date, let matched = Range(match.range, in: text) else { continue }
+            var duration = match.duration
+            var timeZone = match.timeZone
             let range = trimmingLeadWords(of: matched, in: text)
+            if range != matched {
+                // "due friday" reads as a deadline (now until Friday). Read the date phrase on its own instead.
+                let phrase = String(text[range])
+                let phraseRange = NSRange(location: 0, length: phrase.utf16.count)
+                let alone = detector.firstMatch(in: phrase, options: [], range: phraseRange)
+                if let alone, let aloneDate = alone.date {
+                    date = aloneDate
+                    duration = alone.duration
+                    timeZone = alone.timeZone
+                } else if duration > 0 {
+                    date = date.addingTimeInterval(duration)
+                    duration = 0
+                }
+            }
             return DetectedDate(
                 nsRange: NSRange(range, in: text),
                 range: range,
                 date: date,
-                duration: match.duration,
-                timeZone: match.timeZone,
+                duration: duration,
+                timeZone: timeZone,
                 hasTime: mentionsTimeOfDay(String(text[range])))
         }
         return nil
