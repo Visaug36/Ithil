@@ -233,7 +233,8 @@ struct AlertPlannerTests {
     @Test func alertsBeforeTheHorizonAreFoundForEventsJustPastIt() {
         // The horizon is 14 days after `now`: 20 October, 13:50. The exams start 14.5 days after `now`.
         let examStart = Fixture.instant(2026, 10, 21, 1, 50, in: Fixture.amsterdam)
-        #expect(examStart.timeIntervalSince(Fixture.now) == 14.5 * 24 * 60 * 60)
+        let fourteenAndAHalfDays: TimeInterval = 14.5 * 24 * 60 * 60
+        #expect(examStart.timeIntervalSince(Fixture.now) == fourteenAndAHalfDays)
         let dayBefore = Fixture.timed(1, "Exam", start: examStart, alert: .oneDay)
         let tenBefore = Fixture.timed(2, "Exam review", start: examStart, alert: .tenMinutes)
         let allDayBefore = Fixture.allDay(3, "Exam week", on: Fixture.day(2026, 10, 21), alert: .oneDay)
