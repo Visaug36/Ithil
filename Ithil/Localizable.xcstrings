@@ -1,10 +1,620 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ · %@" : {
+      "comment" : "Joins parts of an event's description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ – %@" : {
+      "comment" : "A range of days",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ – %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "comment" : "Joins parts of a VoiceOver label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ to %@" : {
+      "comment" : "VoiceOver: an event and its times",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ to %3$@"
+          }
+        }
+      }
+    },
+    "%@, all day" : {
+      "comment" : "VoiceOver: an all-day event"
+    },
+    "%@, today" : {
+      "comment" : "VoiceOver: a day in the mini month"
+    },
+    "%@, until %@" : {
+      "comment" : "A repeat rule that ends on a day",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, until %2$@"
+          }
+        }
+      }
+    },
+    "%lld days before" : {
+
+    },
+    "%lld hours before" : {
+
+    },
+    "%lld minutes before" : {
+
+    },
+    "%lld more" : {
+
+    },
+    "1 day before" : {
+
+    },
+    "1 hour before" : {
+
+    },
+    "1 minute before" : {
+
+    },
     "A quiet day." : {
 
     },
+    "Add Event" : {
+
+    },
+    "Add Location" : {
+
+    },
+    "Add Notes" : {
+
+    },
+    "Add Subject" : {
+
+    },
+    "Add an event, like “physics quiz thursday 10am”" : {
+
+    },
+    "Add one for each course, like Physics or Biology, and one for the rest of life." : {
+
+    },
+    "Add subjects in Settings" : {
+
+    },
+    "Alert" : {
+
+    },
+    "All Future Events" : {
+
+    },
+    "All day" : {
+
+    },
+    "All-day" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "At time of event" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Changes made after that may be missing." : {
+
+    },
+    "Choose Another Folder…" : {
+
+    },
+    "Choose a Folder for Ithil" : {
+
+    },
+    "Choose an Ithil folder, or a folder to create one in." : {
+
+    },
+    "Choose the folder that has your Ithil calendar in it." : {
+
+    },
+    "Choose where Ithil keeps your calendar" : {
+
+    },
+    "Clay" : {
+
+    },
+    "Color" : {
+
+    },
+    "Copy the folder to back up everything, or open it on another Mac to pick up where you left off." : {
+
+    },
+    "Create" : {
+
+    },
+    "Create Ithil Folder…" : {
+
+    },
+    "Create Your Ithil Folder" : {
+
+    },
+    "Custom Color" : {
+
+    },
+    "Date" : {
+
+    },
+    "Dawn" : {
+
+    },
+    "Day" : {
+
+    },
+    "Default alert" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete %@" : {
+
+    },
+    "Delete Event" : {
+
+    },
+    "Delete Subject" : {
+
+    },
+    "Delete “%@”?" : {
+
+    },
+    "Demo mode: this is a temporary folder with sample data. Your own calendar isn't touched." : {
+
+    },
+    "Done" : {
+
+    },
+    "Duration %@" : {
+
+    },
+    "Each event gets its own folder, like 2026-10-06/14.00 Physics Lecture." : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit Event" : {
+
+    },
+    "End Time" : {
+
+    },
+    "Ends" : {
+
+    },
+    "Events in “%@” stay on your calendar, without a subject." : {
+
+    },
+    "Every %@" : {
+      "comment" : "Repeats weekly on a weekday"
+    },
+    "Every Day" : {
+
+    },
+    "Every Month" : {
+
+    },
+    "Every Week" : {
+
+    },
+    "Every day" : {
+
+    },
+    "Every event gets its own folder there, so its files are real files you can also open in Finder." : {
+
+    },
+    "Every month on the %@" : {
+      "comment" : "Repeats monthly; an ordinal like 6th"
+    },
+    "Fern" : {
+
+    },
+    "Files" : {
+
+    },
+    "First day of week" : {
+
+    },
+    "Folder name:" : {
+
+    },
+    "Folder: %@" : {
+
+    },
+    "General" : {
+
+    },
+    "Hidden" : {
+
+    },
+    "If it's on an external drive, connect the drive and choose Try Again." : {
+
+    },
+    "Iris" : {
+
+    },
+    "It may have been moved, renamed or deleted, or it's on a drive that isn't connected." : {
+
+    },
+    "Ithil can't find its folder" : {
+
+    },
+    "Ithil can't find its folder. Your changes are still open in Ithil." : {
+
+    },
+    "Ithil can't open this calendar" : {
+
+    },
+    "Ithil can't use that folder" : {
+
+    },
+    "Ithil couldn't create a calendar in this folder." : {
+
+    },
+    "Ithil couldn't open the calendar in this folder." : {
+
+    },
+    "Ithil couldn't save your changes" : {
+
+    },
+    "Ithil couldn't save your latest changes." : {
+
+    },
+    "Ithil couldn't set up the demo folder." : {
+
+    },
+    "Ithil folder" : {
+
+    },
+    "Ithil found no calendar file here, and no backup to restore one from." : {
+
+    },
+    "Ithil keeps your calendar and every event's files in this folder." : {
+
+    },
+    "Ithil left the file as it was." : {
+
+    },
+    "Ithil restored its newest backup." : {
+
+    },
+    "Ithil restored the backup saved %@." : {
+
+    },
+    "Ithil restored the safety copy it keeps on this Mac, saved %@." : {
+
+    },
+    "Ithil restored the safety copy it keeps on this Mac." : {
+
+    },
+    "Ithil restored your calendar" : {
+
+    },
+    "Keywords" : {
+
+    },
+    "Locate Folder…" : {
+
+    },
+    "Locate Your Ithil Folder" : {
+
+    },
+    "Location" : {
+
+    },
+    "Match System" : {
+
+    },
+    "Month" : {
+
+    },
+    "Name" : {
+
+    },
+    "Never" : {
+
+    },
+    "New Event" : {
+
+    },
+    "New Event…" : {
+
+    },
+    "New Subject" : {
+
+    },
+    "New events start with this alert. Quick Add gives it only to events with a time." : {
+
+    },
+    "Next" : {
+
+    },
+    "Next Day" : {
+
+    },
+    "Next Month" : {
+
+    },
+    "Next Week" : {
+
+    },
+    "Night" : {
+
+    },
+    "No Subject" : {
+
+    },
+    "No events match “%@”." : {
+
+    },
+    "No folder open" : {
+
+    },
+    "No subjects yet" : {
+
+    },
+    "None" : {
+      "comment" : "No alert"
+    },
+    "Notes" : {
+
+    },
+    "Nothing by that name." : {
+
+    },
+    "Nothing coming up" : {
+
+    },
     "Nothing planned. Press ⌘N to add something." : {
+
+    },
+    "Now" : {
+
+    },
+    "OK" : {
+
+    },
+    "Open Settings…" : {
+
+    },
+    "Open your calendar in Ithil to add events." : {
+
+    },
+    "Opening your calendar" : {
+
+    },
+    "Past" : {
+
+    },
+    "Previous" : {
+
+    },
+    "Previous Day" : {
+
+    },
+    "Previous Month" : {
+
+    },
+    "Previous Week" : {
+
+    },
+    "Quick Add" : {
+
+    },
+    "Quick Add picks a subject when you type its name or a keyword." : {
+
+    },
+    "Read-only: this calendar was saved by a newer version of Ithil. Update Ithil to make changes." : {
+
+    },
+    "Reconnect the drive or put the folder back, then try again." : {
+
+    },
+    "Repeat" : {
+
+    },
+    "Repeats" : {
+
+    },
+    "Rose" : {
+
+    },
+    "Save changes to “%@”?" : {
+
+    },
+    "Search" : {
+
+    },
+    "Separate keywords with commas" : {
+
+    },
+    "Show Today" : {
+
+    },
+    "Show in Day View" : {
+
+    },
+    "Show in Finder" : {
+
+    },
+    "Shown" : {
+
+    },
+    "Shows or hides this subject's events" : {
+
+    },
+    "Shows the event in the calendar" : {
+
+    },
+    "Start Time" : {
+
+    },
+    "Start a New Calendar Here" : {
+
+    },
+    "Subject" : {
+
+    },
+    "Subject Name" : {
+
+    },
+    "Subject matched from “%@”" : {
+
+    },
+    "Subject: %@" : {
+
+    },
+    "Subjects" : {
+
+    },
+    "Suggested: %@" : {
+
+    },
+    "System Default (%@)" : {
+
+    },
+    "Teal" : {
+
+    },
+    "That folder doesn't have an Ithil calendar in it." : {
+
+    },
+    "The calendar file is damaged, and there's no backup Ithil can restore it from." : {
+
+    },
+    "The damaged file was kept at %@." : {
+
+    },
+    "The demo uses a temporary folder, so it can't switch to another one." : {
+
+    },
+    "There's no calendar in this folder" : {
+
+    },
+    "This Event Only" : {
+
+    },
+    "This calendar was saved by a newer version of Ithil." : {
+
+    },
+    "This is a repeating event. Change only this event, or this and all future events?" : {
+
+    },
+    "This is a repeating event. Delete only this event, or this and all future events?" : {
+
+    },
+    "This version of Ithil won't change it." : {
+
+    },
+    "Time" : {
+
+    },
+    "Title" : {
+
+    },
+    "To start a new calendar elsewhere, use Choose Another Folder instead." : {
+
+    },
+    "Today" : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Type what it is, the day and the time." : {
+
+    },
+    "Up next" : {
+
+    },
+    "Upcoming" : {
+
+    },
+    "Update Ithil to open it." : {
+
+    },
+    "Use Existing Folder…" : {
+
+    },
+    "Use This Folder" : {
+
+    },
+    "View" : {
+
+    },
+    "Week" : {
+
+    },
+    "Yesterday" : {
+
+    },
+    "Your calendar file was damaged." : {
+
+    },
+    "Your calendar file was missing." : {
+
+    },
+    "all-day" : {
+
+    },
+    "e.g. phys, mechanics" : {
+
+    },
+    "esc Close" : {
+
+    },
+    "in %lld min" : {
+      "comment" : "Up next: starts in N minutes"
+    },
+    "to" : {
+      "comment" : "Between an event's start and end time"
+    },
+    "until %@" : {
+      "comment" : "Up next: ends at a time"
+    },
+    "↩ Add" : {
+
+    },
+    "⌘↩ Add and edit" : {
 
     }
   },

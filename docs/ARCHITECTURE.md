@@ -347,6 +347,11 @@ Ithil/
   App/FolderAccess.swift         security-scoped bookmarks, open/save panels          (shell)
   App/ClockMonitor.swift         minute ticks, day change, time zone change, wake     (shell)
   App/Appearance.swift           Night / Dawn / Match System → NSApp.appearance       (shell)
+  App/AppDelegate.swift          quitting waits (up to 5 s) for the last save         (shell)
+  App/IthilCommands.swift        File › New Event… ⌘N; View: Today, Day/Week/Month, ‹ › (shell)
+  App/OccurrenceCache.swift      MRU cache of occurrence queries                      (shell)
+  App/LibraryMessages.swift      user-facing load/save/recovery sentences             (shell)
+  App/ModelTypeAliases.swift     `Subject` = IthilCore.Subject (Combine has one too)  (integration)
   Views/MainView.swift           switches on AppModel.state                           (shell)
   Views/FolderSetup/*.swift      choose folder, folder missing, library problems      (shell)
   Views/CalendarWindow.swift     NavigationSplitView + toolbar + .searchable          (sidebar)
@@ -360,6 +365,10 @@ Ithil/
   Views/QuickAdd/*.swift         Quick Add NSPanel + view                             (editor)
   Views/Settings/*.swift         Settings window: General, Subjects, Files            (editor)
 ```
+
+`Subject` also names a Combine protocol that SwiftUI makes visible, so the app declares
+`typealias Subject = IthilCore.Subject` once (`App/ModelTypeAliases.swift`); declarations in the app module
+win over imported ones, so `Subject` always means the model type in app code.
 
 ### `AppModel` (`@Observable @MainActor final class`, injected with `.environment(model)`)
 
@@ -420,7 +429,30 @@ func retryLoad()
 func makeQuickAddParser() -> QuickAddParser
 
 var pendingEditorOccurrenceID: Occurrence.ID?       // set by Quick Add ⌘↩: the calendar opens its editor
+
+// Beyond the original contract (shell); other areas rely on these:
+init(options: LaunchOptions, settings: AppSettings, defaults: UserDefaults)
+func start()                                        // once, from App.init: clock, then demo / saved folder / .needsFolder
+var canEdit: Bool { get }                           // state == .ready && !isReadOnly; editors and Files guard on it
+private(set) var libraryRevision: Int               // bumped on every change to `library`
+var folderError: String?                            // chosen folder unusable; UI shows an alert, then sets nil
+var showsRecoveryNotice: Bool, showsSaveError: Bool, showsFolderError: Bool   // alert bindings
+func relocateFolder(_ chosen: URL)                  // "Locate Folder…": only an Ithil folder (or one holding `Ithil`)
+func retrySave()
+var hasPendingSaves: Bool { get }
+func finishPendingSaves(timeout: Duration) async    // AppDelegate, on quit
+func refreshClock()                                 // ClockMonitor: minute ticks, day change, clock change
+func refreshCalendar()                              // ClockMonitor: time zone / locale change, wake; first-weekday setting
+static var preview: AppModel { get }                // demo library in memory, for #Preview
 ```
+
+- `today` is stored (`private(set) var`), kept current by `refreshClock` / `refreshCalendar`; the views follow a
+  day change when they were on today. The model observes `AppSettings.firstWeekday` itself.
+- `-demoNow` only takes effect together with `-demo`. In `-demo`, `useFolder` / `relocateFolder` show an alert
+  and change nothing.
+- A folder written by a newer Ithil opens read-only (`isReadOnly`, banner, no save queue). A failed save keeps the
+  calendar open and shows an alert with "Try Again".
+- `update` / `delete` only change the library; the Files phase adds folder renames and trashing.
 
 Every mutation updates `library` immediately (the UI never waits) and hands a snapshot to
 `LibrarySaveQueue`, which saves on the `LibraryStore` actor. A newer snapshot replaces any pending one.
@@ -433,15 +465,20 @@ var appearance: AppearanceChoice        // default .night
 var defaultAlert: AlertOffset?          // default 10 minutes
 var firstWeekday: Int?                  // nil = follow the locale; 1 = Sunday … 7 = Saturday
 var effectiveFirstWeekday: Int { get }
+init(defaults: UserDefaults = .standard)
+static var preview: AppSettings { get }
 ```
+
+Setting `appearance` applies it to `NSApp.appearance` at once (`Appearance.apply`).
 
 In `-demo` mode settings live in a throwaway `UserDefaults` suite, so nothing real is touched.
 
 ### Shared view helpers (`Views/Components`)
 
 ```swift
-enum SubjectStyle {
+@MainActor enum SubjectStyle {
     static func color(for subject: Subject?) -> Color          // palette asset or custom; textSecondary if nil
+    nonisolated static func resource(for palette: PaletteColor) -> ColorResource   // the asset of a palette slot
     static func fill(for subject: Subject?, scheme: ColorScheme) -> Color     // 20 % Night / 15 % Dawn
     static func border(for subject: Subject?, scheme: ColorScheme) -> Color   // ~35 %
     static func text(for subject: Subject?, scheme: ColorScheme) -> Color     // AA-safe title color
@@ -451,16 +488,35 @@ struct SubjectDot: View { init(subject: Subject?, size: CGFloat = 8) }
 enum EventFormatting {
     static func time(_ date: Date, timeZone: TimeZone) -> String                   // locale 12/24 h
     static func timeRange(_ occurrence: Occurrence, timeZone: TimeZone) -> String  // "14:00 – 15:30"
-    static func longDate(_ day: CalendarDate, timeZone: TimeZone) -> String        // "Tuesday, 6 October"
-    static func dayAndTime(_ occurrence: Occurrence, timeZone: TimeZone) -> String // "Tuesday, 6 October · 14:00 – 15:30"
+    static func longDate(_ day: CalendarDate, timeZone: TimeZone, includeYear: Bool = false) -> String
+        // "Tuesday, 6 October"
+    static func dayAndTime(_ occurrence: Occurrence, timeZone: TimeZone, includeYear: Bool = false) -> String
+        // "Tuesday, 6 October · 14:00 – 15:30"
     static func upNextSubtitle(_ occurrence: Occurrence, now: Date, math: CalendarMath) -> String
         // "in 10 min · 14:00 · Room B204" / "Today · 17:00" / "Tomorrow · 09:00" / "Thursday · 10:00"
     static func recurrence(_ event: Event, timeZone: TimeZone) -> String?          // "Every Tuesday"
     static func alert(_ alert: AlertOffset?) -> String                             // "10 minutes before"
     static func accessibilityLabel(_ occurrence: Occurrence, timeZone: TimeZone) -> String
-        // "Physics Lecture, 2 to 3:30 PM"
+        // "Physics Lecture, 2:00 PM to 3:30 PM" / "Essay due, all day"
+
+    // Helpers used across areas:
+    static func upNextParts(_ occurrence: Occurrence, now: Date, math: CalendarMath) -> [String]
+    static func joined(_ parts: [String]) -> String                 // " · "
+    static func spokenJoined(_ parts: [String]) -> String           // ", " for VoiceOver
+    static func displayTitle(_ event: Event) -> String              // "New Event" when empty
+    static func displayDay(of occurrence: Occurrence, timeZone: TimeZone) -> CalendarDate
+    static func monthName(_ day: CalendarDate) -> String            // "October"
+    static func year(_ day: CalendarDate) -> String                 // "2026"
+    static func monthAndYear(_ day: CalendarDate) -> String         // "October 2026"
+    static func shortDate(_ day: CalendarDate, includeYear: Bool = false) -> String   // "Mon 12 Oct"
+    static func veryShortWeekdaySymbol(_ weekday: Int) -> String    // "M"
 }
 ```
+
+Also shared from the editor area: `EventChangeContext`, `View.confirmsEventChange(_:isPresented:context:perform:)`
+(the "This Event Only / All Future Events" and delete questions), `AlertChoices.offered(including:)`,
+`SubjectSwatch.image(for:)` (colored menu dots) and `EditorDuration`. From the shell: `FolderAccess.displayPath(_:)`
+("~/…").
 
 ### Views provided to each other
 
@@ -476,6 +532,8 @@ struct EventDetailsView: View {                      // editor
     static let shared: QuickAddPanelController
     func toggle(model: AppModel, settings: AppSettings)
     func show(model: AppModel, settings: AppSettings)
+    func close()
+    var isShown: Bool { get }
 }
 struct SettingsView: View { init() }                 // editor
 struct CalendarWindow: View { init() }               // sidebar: split view, toolbar, search, detail
@@ -484,8 +542,11 @@ struct MonthView: View { init(month: CalendarDate) }      // calendar: month of 
 struct EmptyStateView: View                          // existing
 ```
 
-- Popovers: the calendar owns the event blocks and shows `EventDetailsView` (single click) and
-  `EventEditorView` (double-click, Return, or `pendingEditorOccurrenceID`) as `.popover` on the block.
+- Popovers: the calendar owns the event blocks and shows `EventDetailsView` (single click or Return on a
+  focused event) and `EventEditorView` (double-click, Edit in the details, the VoiceOver "Edit" action, or
+  `pendingEditorOccurrenceID`) as `.popover` on the block. In a read-only folder the details stand in for the
+  editor. Quick Add's ⌘↩ adds the event, calls `show(day, span: nil)` and then sets
+  `pendingEditorOccurrenceID`; only the first on-screen segment of an occurrence opens the editor.
   The toolbar's + shows `EventEditorView(.new)` as a popover on the button. Editing a repeating occurrence
   asks "This Event Only" / "All Future Events" with a `confirmationDialog` before saving or deleting.
 - Every user-facing string is a `LocalizedStringKey` / `String(localized:)` literal so it lands in
