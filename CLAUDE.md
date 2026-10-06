@@ -79,17 +79,17 @@ You're building Ithil, a native macOS calendar for students, as a public open-so
 Keep this section current. Newest first.
 
 ### Decisions
+- **Working mode (user, 2026-10-06):** "do everything yourself". Claude merges each finished phase into `main` itself (PR from `claude/laughing-ride-8gg5eo`, merge commit, after CI is green) and moves on to the next phase without waiting for the user to test. Still: never tag or publish v1.0.0 until the user says so.
 - **License / identity:** MIT, copyright "Visaug36" (the user didn't mind which name). Bundle ID `io.github.visaug36.Ithil`. Repo: https://github.com/Visaug36/Ithil, public from the start.
 - **Design source:** the user sent the design as a PDF instead of the zip. It lives only in `design-reference/Ithil.pdf` (git-ignored, along with renders). Containers are ephemeral, so if it's missing, ask the user to upload it again. `docs/DESIGN.md` must stay complete enough to build every screen without it.
 - **Project layout:** `Ithil.xcodeproj` (objectVersion 77, file-system-synchronized folders, so new files are picked up without editing the project). Targets: `Ithil` (app), `IthilCore` (static framework for all logic: dates, recurrence, storage, folder naming, file ops), `IthilCoreTests` (Swift Testing, not hosted, so it runs without launching the app). IthilCore is static so ad-hoc-signed builds don't trip hardened-runtime library validation. User-facing strings live in the app's `Localizable.xcstrings`, not in IthilCore.
 - **Build settings:** Swift 6 language mode, macOS 14.0 deployment target, universal Release build. Signing defaults to ad-hoc ("Sign to Run Locally", `CODE_SIGN_IDENTITY = -`, Manual, no team). Sandbox, user-selected read-write and app-scope bookmark entitlements are in `Config/Ithil.entitlements`, plus Hardened Runtime. No network entitlement.
 - **Color tokens:** named `BackgroundWindow/Sidebar/Raised/Menu`, `Text*`, `Accent*`, `ControlFill`, `SeparatorLine`, `Subject{Clay,Teal,Iris,Fern,Rose}` (not `WindowBackground`, which clashes with SwiftUI's `.windowBackground`). `TextTertiary` and Dawn `AccentText` were adjusted from the design to pass WCAG AA (see docs/DESIGN.md).
 - **Assets:** the app icon (option 1a) was rasterized from the design PDF at 600 dpi and masked onto Apple's 824/1024 grid. The illustrations were redrawn as plain SVG (no masks or filters). The star field is a generated, seeded 512 pt tile.
-- **CI:** GitHub Actions on `macos-26` with the newest stable Xcode 26.x on the runner. Runs swift-format lint (strict), Debug tests, and a universal Release build (checked with `lipo`). It fails on any warning (`scripts/check-warnings.sh` + `SWIFT_TREAT_WARNINGS_AS_ERRORS`).
+- **CI:** GitHub Actions on `macos-26` with the newest stable Xcode 26.x on the runner (26.6 as of 2026-10-06; the user doesn't know their own versions, so this is the pin). Runs swift-format lint (strict), Debug tests, and a universal Release build (checked with `lipo`). It fails on any warning (`scripts/check-warnings.sh` + `SWIFT_TREAT_WARNINGS_AS_ERRORS`).
 - **Environment:** Claude works in a Linux cloud container without Xcode, so GitHub Actions is the build-and-test loop. `gh` isn't authenticated there; GitHub is reached through git and the GitHub connector.
 
 ### Open items
-- User's exact macOS and Xcode versions: needed to pin CI precisely. CI currently gets Xcode 26.6 on macOS 26.6.2 (`macos-26` runner).
 - Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file): Phase 5 or 6.
 - Increase Contrast color variants: Phase 5.
 
