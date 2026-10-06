@@ -89,9 +89,9 @@ Keep this section current. Newest first.
 - **Environment:** Claude works in a Linux cloud container without Xcode, so GitHub Actions is the build-and-test loop. `gh` isn't authenticated there; GitHub is reached through git and the GitHub connector.
 
 ### Open items
-- User's exact macOS and Xcode versions: needed to pin CI precisely.
+- User's exact macOS and Xcode versions: needed to pin CI precisely. CI currently gets Xcode 26.6 on macOS 26.6.2 (`macos-26` runner).
 - Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file): Phase 5 or 6.
 - Increase Contrast color variants: Phase 5.
 
 ### Status
-- 2026-10-06: brief saved; Phase 1 in progress (project, assets, design doc, CI).
+- 2026-10-06: **Phase 1 done, CI green** (lint, 2 tests, universal Release build, zero warnings). Waiting for the user to test on their Mac before Phase 2.
