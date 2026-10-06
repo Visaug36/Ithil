@@ -152,7 +152,8 @@ struct LibraryStoreTests {
         let version2 = try Data(contentsOf: eventsFile)
         library.events[0].title = "Version 3"
         try await store.save(library)
-        #expect(StorageFixtures.backupNames(in: root) == ["events-20261006-115000.json", "events-20261006-125000.json"])
+        #expect(
+            StorageFixtures.backupNames(in: root) == ["events-20261006-115000.json", "events-20261006-125000.json"])
         let secondBackup = StorageFixtures.backupsFolder(in: root).appending(component: "events-20261006-125000.json")
         let secondBackupData = try Data(contentsOf: secondBackup)
         #expect(secondBackupData == version2)
