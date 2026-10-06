@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Newest stable Xcode with this major version on the runner. Keep in step with the
+  # maintainer's Xcode (see CLAUDE.md).
+  XCODE_MAJOR: "26"
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app | grep -vi beta | sort -V | tail -n 1)
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+          xcodebuild -version
+          sw_vers
+
+      - name: Lint (swift-format)
+        run: xcrun swift-format lint --strict --recursive --parallel Ithil IthilCore IthilCoreTests
+
+      - name: Test (Debug)
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild test \
+            -project Ithil.xcodeproj -scheme Ithil -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/TestResults.xcresult \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee build/test.log
+
+      - name: Build Release (universal)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Ithil.xcodeproj -scheme Ithil -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            ONLY_ACTIVE_ARCH=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee build/release.log
+          archs=$(lipo -archs build/DerivedData/Build/Products/Release/Ithil.app/Contents/MacOS/Ithil)
+          echo "Architectures: $archs"
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]]
+
+      - name: Check for warnings
+        run: scripts/check-warnings.sh build/test.log build/release.log
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/TestResults.xcresult
+            build/*.log
+          if-no-files-found: ignore

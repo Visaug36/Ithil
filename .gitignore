@@ -1,6 +1,7 @@
 # Design export: never commit (contains a reference photo that isn't ours to publish)
 design-reference/
 *.zip
+Ithil__Offline_Student_Calendar*
 
 # Xcode
 xcuserdata/
@@ -18,3 +19,6 @@ build/
 *.cer
 *.mobileprovision
 .env
+
+# Build output
+*.xcresult
