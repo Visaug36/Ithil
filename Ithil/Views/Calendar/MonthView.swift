@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Month view: a weekday header in the user's first-weekday order over the month's 5 or 6 weeks,
 /// which fill the window. Each day shows up to 3 events, then "N more". ← / → step by month while the
-/// calendar has keyboard focus.
+/// calendar has keyboard focus, and Delete deletes the selected event (after asking).
 struct MonthView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var isFocused: Bool
@@ -27,6 +27,7 @@ struct MonthView: View {
         .focused($isFocused)
         .focusEffectDisabled()
         .calendarArrowKeys()
+        .calendarDeleteCommand()
         .onAppear {
             focusUnlessSearching()
         }

@@ -179,9 +179,11 @@ public protocol FileSystem: Sendable {
     func moveItem(at source: URL, to destination: URL) throws
     func removeItem(at url: URL) throws                       // only for Ithil's own housekeeping files
     func trashItem(at url: URL) throws                        // moves to the Trash
+    func trashItemReturningURL(at url: URL) throws -> URL?   // the same, plus where it went (nil = unknown)
     func modificationDate(at url: URL) -> Date?
 }
-public struct LocalFileSystem: FileSystem { public init() }
+extension FileSystem { public func trashItemReturningURL(at url: URL) throws -> URL? }  // trashItem, then nil
+public struct LocalFileSystem: FileSystem { public init() }   // FileManager.trashItem(at:resultingItemURL:)
 
 public enum LibraryCodec {
     public static let currentSchemaVersion: Int               // 1
@@ -407,7 +409,10 @@ public actor EventFolders {
     public func files(for occurrence: Occurrence) -> [EventFile]        // visible items, Finder order
     public func fileCount(for occurrence: Occurrence) -> Int
     @discardableResult public func relocate(from old: Occurrence, to new: Occurrence) throws -> URL?
-    public func trashFolder(for occurrence: Occurrence) throws          // Trash, never a permanent delete
+    @discardableResult
+    public func trashFolder(for occurrence: Occurrence) throws -> URL?  // Trash, never a permanent delete;
+                                                                        // returns where it is in the Trash
+    public func restoreFolder(from trashed: URL, for occurrence: Occurrence) throws -> URL   // Undo of a delete
     public func reindex()                                               // rescan every marker
     public func markedFolders() -> [Occurrence.ID: URL]                 // after a full rescan
     public nonisolated func contains(_ url: URL) -> Bool                // inside root, links resolved
@@ -437,12 +442,17 @@ public enum LibraryMove {
 - **Nothing outside the root:** every create, write, move and trash checks `contains(_:)` (symbolic links
   resolved). **Nothing deleted:** folders and files go to the Trash; only completely empty day folders are
   removed (`rmdir`).
+- `restoreFolder(from:for:)` puts a trashed folder back at the occurrence's expected path, for Undo. It
+  refuses (`CocoaError.fileNoSuchFile`) anything that isn't a real folder whose marker names the occurrence,
+  and (`.fileWriteFileExists`) an occurrence that already has a folder again; a taken name gets " 2" like
+  Finder; every target is checked to be inside the root; the day folder is created if needed, never the root.
+  On failure the folder stays in the Trash.
 - `LibraryMove` moves `.ithil` and the day folders (renames on one volume, copy then move across volumes),
   `.ithil` last, and moves everything back if one item fails.
 
 ## App layer (`Ithil/`)
 
-Files and their owners (Phase 2, then Phases 3 and 4). Shared types are declared once, by the owner listed;
+Files and their owners (Phase 2, then Phases 3, 4 and 5). Shared types are declared once, by the owner listed;
 everyone else uses them exactly as specified here.
 
 ```
@@ -456,7 +466,7 @@ Ithil/
   App/ClockMonitor.swift         minute ticks, day change, time zone change, wake     (shell)
   App/Appearance.swift           Night / Dawn / Match System → NSApp.appearance       (shell)
   App/AppDelegate.swift          quitting waits (up to 5 s) for the last save         (shell)
-  App/IthilCommands.swift        File › New Event… ⌘N; View: Today, Day/Week/Month, ‹ › (shell)
+  App/IthilCommands.swift        About; New Event… ⌘N; Find… ⌘F; View: Today, Day/Week/Month, ‹ ›; Help (shell)
   App/OccurrenceCache.swift      MRU cache of occurrence queries                      (shell)
   App/LibraryMessages.swift      user-facing load/save/recovery sentences             (shell)
   App/ModelTypeAliases.swift     `Subject` = IthilCore.Subject (Combine has one too)  (integration)
@@ -477,6 +487,17 @@ Ithil/
   App/Notifications/*.swift      NotificationsController, scheduler, delegate, alert text      (notify)
   Views/Files/*.swift            file list, drop targets, editor drop zone, Add Files panel     (files-ui)
   Views/Notifications/*.swift    the explain-then-ask permission card                           (notify)
+  App/HotKey/*.swift             HotKeyCombo, GlobalHotKey (Carbon), QuickAddHotKeyController, VirtualKey (hotkey)
+  App/LaunchAtLogin.swift        SMAppService.mainApp wrapper                                   (hotkey)
+  Views/Settings/HotKeyRecorder.swift  the shortcut recorder field                              (hotkey)
+  App/AppLinks.swift             GitHub URLs for About and Help, opened in the browser          (menubar)
+  Views/MenuBar/*.swift          MenuBarContent/Label, agenda, navigation, RaisedPanelBackground (menubar)
+  Views/About/*.swift            the About window                                               (menubar)
+  Views/Onboarding/*.swift       the three first-launch pages                                   (onboarding)
+  App/SearchFocus.swift          Edit › Find… focuses the toolbar search field                  (keyboard)
+  App/Files/FolderRestorePlan.swift  which folders an Undo / Redo moves (pure)                  (keyboard)
+  Views/Calendar/TimeGridDrag.swift, EventBlockEditing.swift   drag to move / resize, ⌥-arrows  (keyboard)
+  Views/Calendar/CalendarDeleteCommand.swift   Delete key on the calendar                       (keyboard)
 ```
 
 `Subject` also names a Combine protocol that SwiftUI makes visible, so the app declares
@@ -533,7 +554,8 @@ func occurrence(id: Occurrence.ID) -> Occurrence?
 
 func newEvent(on day: CalendarDate, startMinute: Int?) -> Event   // 1 h, default alert, not yet added
 func add(_ event: Event)
-func update(_ occurrence: Occurrence, with edited: Event, scope: SeriesEditing.Scope)
+func update(_ occurrence: Occurrence, with edited: Event, scope: SeriesEditing.Scope,
+            undoAction: LibraryUndoAction = .editEvent)    // .moveEvent from drag / ⌥-arrows
 func delete(_ occurrence: Occurrence, scope: SeriesEditing.Scope)
 
 func useFolder(_ chosen: URL)                       // applies RootFolderPolicy, then creates or loads
@@ -559,6 +581,12 @@ func finishPendingSaves(timeout: Duration) async    // AppDelegate, on quit
 func refreshClock()                                 // ClockMonitor: minute ticks, day change, clock change
 func refreshCalendar()                              // ClockMonitor: time zone / locale change, wake; first-weekday setting
 static var preview: AppModel { get }                // demo library in memory, for #Preview
+
+// Undo / Redo (Phase 5, keyboard):
+@ObservationIgnored weak var undoManager: UndoManager?   // set by MainView from @Environment(\.undoManager);
+                                                         // capped at 100 levels when set
+func restore(_ snapshot: Library, actionName: String)    // puts a snapshot back, registers the inverse
+enum LibraryUndoAction { case addEvent, editEvent, moveEvent, deleteEvent, editSubjects; var name: String }
 ```
 
 - `today` is stored (`private(set) var`), kept current by `refreshClock` / `refreshCalendar`; the views follow a
@@ -569,6 +597,15 @@ static var preview: AppModel { get }                // demo library in memory, f
   calendar open and shows an alert with "Try Again".
 - `update` / `delete` only change the library; `FilesController` hears about them as a `LibraryChange` and
   renames, moves or trashes the event folders.
+
+**Undo and Redo** are snapshots: every `add` / `update` / `delete` and subject change registers an undo step
+that holds the library from before it (`Library` is a value type, so this is cheap to take; at most 100 steps
+are kept). Undoing calls `restore(_:actionName:)`, which commits the snapshot (and saves it), registers the
+opposite step under the same name (so Redo works), and notifies observers with `.restored`. Names: "Add
+Event", "Edit Event", "Move Event", "Delete Event", "Edit Subjects"; edits of one subject less than two
+seconds apart share a step (typing a name, dragging the color picker). Nothing is registered while the
+library can't be edited (loading, read-only, moving), and a snapshot of another library is ignored. Subject
+edits made in Settings land on the main window's undo manager.
 
 Every mutation updates `library` immediately (the UI never waits) and hands a snapshot to
 `LibrarySaveQueue`, which saves on the `LibraryStore` actor. A newer snapshot replaces any pending one.
@@ -581,7 +618,10 @@ var appearance: AppearanceChoice        // default .night
 var defaultAlert: AlertOffset?          // default 10 minutes
 var firstWeekday: Int?                  // nil = follow the locale; 1 = Sunday … 7 = Saturday
 var effectiveFirstWeekday: Int { get }
-init(defaults: UserDefaults = .standard)
+var showsMenuBarExtra: Bool             // default true
+var quickAddHotKey: HotKeyCombo?        // default .optionSpace; nil = off (stored as "off")
+var hasCompletedOnboarding: Bool        // default false; always true in -demo and previews
+init(defaults: UserDefaults = .standard, isDemo: Bool = LaunchOptions.current.isDemo)
 static var preview: AppSettings { get }
 ```
 
@@ -678,6 +718,7 @@ enum LibraryChange {
     case updated(Occurrence, edited: Event, scope: SeriesEditing.Scope)
     case deleted(Occurrence, scope: SeriesEditing.Scope)     // the UI asked first
     case subjectsChanged
+    case restored                                            // Undo / Redo put back a snapshot
 }
 @MainActor protocol LibraryChangeObserver: AnyObject {
     func libraryDidChange(_ change: LibraryChange, from old: Library, to new: Library)
@@ -723,6 +764,14 @@ they registered. `FilesController` registers first, then `NotificationsControlle
   carries the edited event's folders along (`FolderCarryPlan`: same event on the same date, a detached
   occurrence, or the moved series after an "all future" split); folders with no new home stay put.
   `.deleted` trashes only the deleted occurrences' folders. `.added` / `.subjectsChanged` touch nothing.
+- **Undo and Redo** (`.restored`): `FolderRestorePlan` compares the two libraries and moves each changed
+  event's folders to where the restored library expects them (the same event moved back, a detached
+  occurrence rejoining its series, a split series joining up again, and the reverse for Redo). Folders this
+  session trashed (`trashFolder` returns their URL in the Trash) come back with `restoreFolder` when an
+  occurrence that was missing before the step exists after it; the check runs when the work runs, so a
+  quick Redo that deletes it again leaves the folder in the Trash. A restore never trashes anything: after
+  Redo of a delete, the folder stays in the root until Undo links it up again. Failures say "Ithil couldn't
+  bring the folder of “…” back from the Trash. It's still in the Trash."
 - **Disk work runs one at a time** (copies, renames, the Trash, a library move) in the order it was asked
   for; work for an earlier library is dropped when another opens.
 - **FSEvents** (`RootFolderWatcher`, file-level, 0.3 s, main queue): `FolderChangeFilter` sorts paths into
@@ -780,16 +829,92 @@ struct NotificationPermissionView: View              // explain-then-ask card: s
   General has a Notifications row.
 - **`-demo`** never reads permission or schedules anything (it would replace the user's real alerts).
 
+### Phase 5: menu bar, hotkey, onboarding, keyboard
+
+```swift
+struct HotKeyCombo: Codable, Hashable, Sendable {          // hotkey
+    var keyCode: UInt32; var carbonModifiers: UInt32; var keyName: String
+    static let optionSpace: HotKeyCombo
+    var displayString: String { get }                       // "⌥Space", ⌃⌥⇧⌘ order
+    @MainActor init?(event: NSEvent)                        // nil unless ⌘, ⌥ or ⌃ is held
+    var hasRequiredModifier: Bool { get }
+    @MainActor var isMainMenuShortcut: Bool { get }         // the recorder refuses Ithil's own menu shortcuts
+}
+@MainActor final class GlobalHotKey {                      // Carbon RegisterEventHotKey; sandbox-safe, no prompt
+    enum RegistrationResult { case registered, off, unavailable }
+    init(onPress: @escaping @MainActor () -> Void)
+    @discardableResult func register(_ combo: HotKeyCombo?) -> RegistrationResult
+    func unregister()
+}
+@Observable @MainActor final class QuickAddHotKeyController {   // owns the one GlobalHotKey
+    static let shared: QuickAddHotKeyController
+    private(set) var status: GlobalHotKey.RegistrationResult   // for Settings' "Another app is using this shortcut"
+    func start(settings: AppSettings, onPress: @escaping @MainActor () -> Void)   // once, from IthilApp
+    func suspend(); func resume()                              // while the recorder records
+}
+@MainActor enum LaunchAtLogin {                            // SMAppService.mainApp
+    enum Status { case on, off, requiresApproval }
+    static var status: Status { get }; static func set(_ on: Bool) throws; static func openLoginItemsSettings()
+}
+enum AppLinks { static let repository, releases, newIssue, license: URL; static func open(_ url: URL) }  // menubar
+struct MenuBarContent: View; struct MenuBarLabel: View     // menubar: the MenuBarExtra window and its moon
+struct AboutView: View { static let windowID = "about" }   // menubar
+struct OnboardingView: View {                              // onboarding
+    enum Step { case welcome, chooseFolder, notifications }
+    init(startAt: Step, onFinish: @escaping () -> Void = {})  // sets hasCompletedOnboarding when done
+}
+struct ChooseFolderActions: View                           // shared by ChooseFolderView and onboarding
+@MainActor enum SearchFocus { static func focus() }        // keyboard: Edit › Find… ⌘F
+```
+
+- **Global hotkey:** Carbon `RegisterEventHotKey` on the application event target with one
+  `InstallEventHandler` callback (`@convention(c)`, unretained context, `MainActor.assumeIsolated`; presses
+  arrive on the main thread). It registers exclusively first, so a shortcut another app holds reports
+  `.unavailable`; shortcuts macOS itself uses (`CopySymbolicHotKeys`) and ones without ⌘, ⌥ or ⌃ are
+  `.unavailable` too. `QuickAddHotKeyController` re-registers whenever `settings.quickAddHotKey` changes
+  (`withObservationTracking`). A press toggles the Quick Add panel. ⌘N in the app is unaffected.
+- **Menu bar extra:** `MenuBarExtra(isInserted: $settings.showsMenuBarExtra)` with `.menuBarExtraStyle(.window)`:
+  today's date, the next event (`model.upNext.first`) with Open Files when it has files, Today and Tomorrow
+  (6 rows each, then "N more"), and Quick Add… / Open Ithil ⌘O / Settings… ⌘, / Quit Ithil ⌘Q. Clicking an
+  event shows it in the main window (`MenuBarNavigation`), which also closes the menu bar window.
+- **Liquid Glass (macOS 26+ only):** the Quick Add panel keeps its opaque `BackgroundRaised` fill, inset
+  2 pt over a `.glassEffect(.regular)`, so only a glass rim shows and all text stays on the opaque token
+  color (`RaisedPanelBackground`). The menu bar window stays opaque inside the system's own glass window.
+  macOS 14 and 15 draw exactly as before.
+- **About and Help:** Ithil › About Ithil opens `Window(id: "about")`. Help: "Ithil on GitHub", "Check for
+  Updates…", "Report an Issue…" open the GitHub pages in the browser (`NSWorkspace.open`); the app makes no
+  network request.
+- **Find:** Edit › Find… ⌘F (before the system's text-editing group) focuses the toolbar search field
+  (`NSSearchToolbarItem.beginSearchInteraction`, else the first `NSSearchField` in the window). While a text
+  view is editing, ⌘F goes to that text's own find bar instead. Disabled unless the calendar is `.ready`.
+- **Onboarding:** `MainView` shows `OnboardingView(startAt: .welcome)` for `.needsFolder` and
+  `OnboardingView(startAt: .notifications)` for `.ready` until `hasCompletedOnboarding`; then
+  `ChooseFolderView` and the calendar. Reduce Motion turns the page slide into a cross-fade.
+- **Keyboard and drag:** Delete (`.onDeleteCommand` on Day/Week and Month) asks the same question as the
+  details and editor. Blocks drag to move (15-minute snapping; whole days across Week columns) and resize at
+  their bottom 6 pt (minimum 15 minutes), with a preview and no animation; a repeating occurrence asks
+  "This Event Only" / "All Future Events" first, and Cancel puts it back. ⌥↑ / ⌥↓ move a focused block 15
+  minutes and ⌥⇧↑ / ⌥⇧↓ change its end; VoiceOver has the same four actions. All of it is one "Move
+  Event" undo step through `model.update(…, undoAction: .moveEvent)`.
+- **Increase Contrast:** `TextSecondary`, `TextTertiary`, `AccentText`, `SeparatorLine` and `ControlFill`
+  have high-contrast variants in the asset catalog (see docs/DESIGN.md).
+
 ### App wiring (integration)
 
 - `IthilApp.init`: `AppSettings` → `AppModel` → `FilesController(model:)` → `NotificationsController(model:files:)`
   → `model.start()`, so both observers are registered before any library opens (and `FilesController` also
   follows a library that is already open). All four are `@State` on the app and injected with `.environment`
-  into the main `WindowGroup(id: "main")` and the `Settings` scene. Previews use the `.preview` instances.
+  into the main `WindowGroup(id: "main")`, the `Settings` scene and the `MenuBarExtra`. Previews use the
+  `.preview` instances. `AppSettings` gets `isDemo: options.isDemo`.
+- Scenes: `WindowGroup(id: "main")`, `Settings`, `Window("About Ithil", id: "about")` (content size, hidden
+  title bar, centered, no Window-menu command) and `MenuBarExtra(isInserted: $settings.showsMenuBarExtra)`.
+- Once the run loop runs (`Task { @MainActor in … }` in `init`), `QuickAddHotKeyController.shared.start` registers
+  the global shortcut; a press calls `QuickAddPanelController.shared.toggle(model:settings:)`.
 - `AppDelegate.applicationWillFinishLaunching` calls `NotificationDelegate.install()`; the controller attaches
   itself and observes `didBecomeActive` for the permission, so the delegate needs nothing else.
 - Clock events: `ClockMonitor` keeps `AppModel` current; `NotificationsController` observes the same system
   notifications itself (day change, clock, time zone, locale, wake) instead of a callback from the model,
   so neither the model nor the monitor knows about notifications.
-- `MainView` shows `files.lastError` ("There was a problem with your files") next to the model's alerts and
-  sets `notifications.openMainWindow`.
+- `MainView` shows `files.lastError` ("There was a problem with your files") next to the model's alerts,
+  sets `notifications.openMainWindow`, sets `model.undoManager` from `@Environment(\.undoManager)` (on appear
+  and when it changes), and picks onboarding or the regular screens as described above.

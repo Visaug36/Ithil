@@ -3,9 +3,11 @@ import IthilCore
 
 /// What a batch of folder changes did.
 struct EventFolderWorkReport: Sendable {
-    /// How many folders were renamed, moved or put in the Trash.
+    /// How many folders were renamed, moved, put in the Trash or brought back from it.
     var changed = 0
     var failures: [EventFolderFailure] = []
+    /// The folders put in the Trash, where the file system said where they went.
+    var trashed: [TrashedEventFolder] = []
 }
 
 /// One folder change that failed.
@@ -65,10 +67,53 @@ extension EventFolders {
         for target in FolderCarryPlan.trashTargets(forMarked: markedIDs, deletion: deletion) {
             guard existingFolder(for: target) != nil else { continue }
             do {
-                try trashFolder(for: target)
+                if let trashed = try trashFolder(for: target) {
+                    report.trashed.append(TrashedEventFolder(occurrence: target, trashedURL: trashed))
+                }
                 report.changed += 1
             } catch {
                 report.failures.append(EventFolderFailure(title: target.event.title, error: error))
+            }
+        }
+        return report
+    }
+
+    /// After Undo or Redo: renames and moves the folders of the events it changed so they match the
+    /// library put back (`FolderRestorePlan`). Never trashes anything; a folder that can't move stays where
+    /// it is, and the others still move.
+    func followRestore(_ restore: FolderRestore) -> EventFolderWorkReport {
+        let changed = FolderRestorePlan.changedEvents(restore)
+        var report = EventFolderWorkReport()
+        guard !changed.isEmpty else { return report }
+        let markedIDs: [Occurrence.ID]
+        if FolderRestorePlan.needsFullScan(changed) {
+            markedIDs = Array(markedFolders().keys)
+        } else {
+            markedIDs = FolderRestorePlan.singleOccurrenceIDs(changed)
+        }
+        for move in FolderRestorePlan.moves(forMarked: markedIDs, restore: restore, changed: changed) {
+            do {
+                if try relocate(from: move.from, to: move.to) != nil {
+                    report.changed += 1
+                }
+            } catch {
+                report.failures.append(EventFolderFailure(title: move.from.event.title, error: error))
+            }
+        }
+        return report
+    }
+
+    /// Brings folders back from the Trash, each to where its occurrence expects it now
+    /// (`restoreFolder(from:for:)`). `items` pair each trashed folder with the occurrence as it is now. A
+    /// folder that can't come back stays in the Trash.
+    func putBack(_ items: [TrashedEventFolder]) -> EventFolderWorkReport {
+        var report = EventFolderWorkReport()
+        for item in items {
+            do {
+                _ = try restoreFolder(from: item.trashedURL, for: item.occurrence)
+                report.changed += 1
+            } catch {
+                report.failures.append(EventFolderFailure(title: item.occurrence.event.title, error: error))
             }
         }
         return report

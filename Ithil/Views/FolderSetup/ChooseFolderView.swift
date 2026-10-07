@@ -1,37 +1,55 @@
 import SwiftUI
 
-/// First launch: where Ithil should keep the calendar and every event's files.
+/// Where Ithil should keep the calendar and every event's files, when there is no folder yet.
+///
+/// Onboarding shows the same words and the same `ChooseFolderActions` as its second step; this screen is
+/// for when onboarding is already done (for example after the saved folder was forgotten).
 struct ChooseFolderView: View {
-    @Environment(AppModel.self) private var model
-
     var body: some View {
-        FolderSetupScreen(title: title, message: message, footnote: footnote) {
-            Button("Create Ithil Folder…") {
-                createFolder()
-            }
-            .buttonStyle(FolderSetupButtonStyle(isProminent: true))
-            .keyboardShortcut(.defaultAction)
-            Text("Suggested: \(FolderAccess.suggestedFolderDisplayPath)")
-                .font(Typography.eventTime)
-                .foregroundStyle(Color.textTertiary)
-                .padding(.bottom, 6)
-            Button("Use Existing Folder…") {
-                chooseFolder()
-            }
-            .buttonStyle(FolderSetupButtonStyle(isProminent: false))
+        FolderSetupScreen(title: Self.title, message: Self.message, footnote: Self.footnote) {
+            ChooseFolderActions()
         }
     }
 
-    private var title: Text {
+    /// The headline, shared with onboarding.
+    static var title: Text {
         Text("Choose where Ithil keeps your calendar")
     }
 
-    private var message: Text {
+    /// The explanation under the headline, shared with onboarding.
+    static var message: Text {
         Text("Every event gets its own folder there, so its files are real files you can also open in Finder.")
     }
 
-    private var footnote: Text {
+    /// The backup hint under the buttons, shared with onboarding.
+    static var footnote: Text {
         Text("Copy the folder to back up everything, or open it on another Mac to pick up where you left off.")
+    }
+}
+
+/// "Create Ithil Folder…" (suggesting ~/Documents/Ithil) and "Use Existing Folder…". Both hand the chosen
+/// folder to `AppModel.useFolder`, which applies `RootFolderPolicy` and opens or creates the calendar.
+///
+/// Shared by `ChooseFolderView` and onboarding, so choosing a folder works the same way in both. Lay it out
+/// in a `VStack(spacing: 10)`.
+struct ChooseFolderActions: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Button("Create Ithil Folder…") {
+            createFolder()
+        }
+        .buttonStyle(FolderSetupButtonStyle(isProminent: true))
+        .keyboardShortcut(.defaultAction)
+        Text("Suggested: \(FolderAccess.suggestedFolderDisplayPath)")
+            .font(Typography.eventTime)
+            .foregroundStyle(Color.textTertiary)
+            .padding(.bottom, 6)
+        Button("Use Existing Folder…") {
+            chooseFolder()
+        }
+        .buttonStyle(FolderSetupButtonStyle(isProminent: false))
+        .accessibilityHint(Text("Opens an Ithil folder you already have, or creates one inside the folder you pick"))
     }
 
     private func createFolder() {

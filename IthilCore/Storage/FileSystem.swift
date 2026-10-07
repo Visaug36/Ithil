@@ -26,8 +26,21 @@ public protocol FileSystem: Sendable {
     func removeItem(at url: URL) throws
     /// Moves a file or folder to the Trash.
     func trashItem(at url: URL) throws
+    /// Moves a file or folder to the Trash, like `trashItem(at:)`, and returns where it is in the Trash now,
+    /// so it can be put back; nil when that isn't known. The default implementation calls `trashItem(at:)`
+    /// and returns nil.
+    func trashItemReturningURL(at url: URL) throws -> URL?
     /// When the item's contents last changed, or nil if it doesn't exist.
     func modificationDate(at url: URL) -> Date?
+}
+
+extension FileSystem {
+    /// For file systems that can't tell where a trashed item went: trashes it with `trashItem(at:)` and
+    /// returns nil.
+    public func trashItemReturningURL(at url: URL) throws -> URL? {
+        try trashItem(at: url)
+        return nil
+    }
 }
 
 /// The real disk, through `FileManager.default`.
@@ -74,6 +87,12 @@ public struct LocalFileSystem: FileSystem {
 
     public func trashItem(at url: URL) throws {
         try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    }
+
+    public func trashItemReturningURL(at url: URL) throws -> URL? {
+        var resultingItem: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resultingItem)
+        return resultingItem.map { $0 as URL }
     }
 
     public func modificationDate(at url: URL) -> Date? {

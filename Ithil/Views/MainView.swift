@@ -3,13 +3,20 @@ import SwiftUI
 
 /// The main window's content: one screen per `LibraryState`, plus the alerts for a recovered library,
 /// a failed save, a folder that can't be used and a file operation that failed.
+///
+/// Until onboarding is done (`AppSettings.hasCompletedOnboarding`; `-demo` counts as done), `.needsFolder`
+/// shows onboarding's welcome and folder pages, and `.ready` its notifications page; afterwards they show
+/// `ChooseFolderView` and the calendar. The window's undo manager becomes `AppModel.undoManager`, so Edit ›
+/// Undo and Redo reach the calendar's changes.
 struct MainView: View {
     /// The main window's scene ID, for `openWindow(id:)` (clicking a notification while no window is open).
     static let windowID = "main"
 
     @Environment(AppModel.self) private var model
+    @Environment(AppSettings.self) private var settings
     @Environment(NotificationsController.self) private var notifications
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         content
@@ -23,22 +30,34 @@ struct MainView: View {
                 notifications.openMainWindow = {
                     openWindow(id: MainView.windowID)
                 }
+                model.undoManager = undoManager
+            }
+            .onChange(of: undoManager) { _, newValue in
+                model.undoManager = newValue
             }
     }
 
     @ViewBuilder private var content: some View {
         switch model.state {
         case .needsFolder:
-            ChooseFolderView()
+            if settings.hasCompletedOnboarding {
+                ChooseFolderView()
+            } else {
+                OnboardingView(startAt: .welcome)
+            }
         case .loading:
-            LoadingView()
+            LoadingView(isStarry: !settings.hasCompletedOnboarding)
         case .ready:
-            CalendarWindow()
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if model.isReadOnly {
-                        ReadOnlyBanner()
+            if settings.hasCompletedOnboarding {
+                CalendarWindow()
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if model.isReadOnly {
+                            ReadOnlyBanner()
+                        }
                     }
-                }
+            } else {
+                OnboardingView(startAt: .notifications)
+            }
         case .folderMissing(let path):
             FolderMissingView(path: path)
         case .noLibrary(let path):
@@ -50,8 +69,11 @@ struct MainView: View {
 }
 
 /// A quiet spinner while the library opens. It only appears after a moment, so a fast launch doesn't
-/// flash it.
+/// flash it. During onboarding it keeps the star field, so the stars don't blink out between the folder
+/// and notifications pages.
 private struct LoadingView: View {
+    /// Whether to lay the star field over the background (during onboarding).
+    var isStarry = false
     @State private var showsSpinner = false
 
     var body: some View {
@@ -63,7 +85,15 @@ private struct LoadingView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.backgroundWindow)
+        .background {
+            ZStack {
+                Color.backgroundWindow
+                if isStarry {
+                    StarField()
+                }
+            }
+            .ignoresSafeArea()
+        }
         .task {
             do {
                 try await Task.sleep(for: .milliseconds(400))

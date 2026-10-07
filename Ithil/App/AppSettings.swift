@@ -11,21 +11,32 @@ enum AppearanceChoice: String, CaseIterable {
 ///
 /// Every property is read once at launch and written through on change. Changing `appearance` applies it
 /// to the whole app at once (see `Appearance`). `AppModel` observes `firstWeekday` and rebuilds its
-/// calendar math when it changes, so the views never have to wire that up.
+/// calendar math when it changes, so the views never have to wire that up. `QuickAddHotKeyController`
+/// observes `quickAddHotKey` and re-registers the global shortcut.
 ///
-/// In `-demo` mode the store is a throwaway suite (`LaunchOptions.makeDemoDefaults()`).
+/// In `-demo` mode the store is a throwaway suite (`LaunchOptions.makeDemoDefaults()`), and onboarding
+/// counts as done.
 @Observable @MainActor
 final class AppSettings {
     private let defaults: UserDefaults
+    private let isDemo: Bool
     private var storedAppearance: AppearanceChoice
     private var storedDefaultAlert: AlertOffset?
     private var storedFirstWeekday: Int?
+    private var storedShowsMenuBarExtra: Bool
+    private var storedQuickAddHotKey: HotKeyCombo?
+    private var storedHasCompletedOnboarding: Bool
 
-    init(defaults: UserDefaults = .standard) {
+    /// `isDemo` defaults to what the launch arguments say; the app passes `options.isDemo` explicitly.
+    init(defaults: UserDefaults = .standard, isDemo: Bool = LaunchOptions.current.isDemo) {
         self.defaults = defaults
+        self.isDemo = isDemo
         storedAppearance = AppSettings.readAppearance(from: defaults)
         storedDefaultAlert = AppSettings.readDefaultAlert(from: defaults)
         storedFirstWeekday = AppSettings.readFirstWeekday(from: defaults)
+        storedShowsMenuBarExtra = defaults.object(forKey: Key.showsMenuBarExtra) as? Bool ?? true
+        storedQuickAddHotKey = AppSettings.readQuickAddHotKey(from: defaults)
+        storedHasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
     }
 
     /// Default `.night`.
@@ -69,9 +80,49 @@ final class AppSettings {
         firstWeekday ?? Calendar.autoupdatingCurrent.firstWeekday
     }
 
-    /// Settings in their own throwaway store, for SwiftUI previews.
+    /// Whether the moon menu bar extra is shown. Default true.
+    var showsMenuBarExtra: Bool {
+        get { storedShowsMenuBarExtra }
+        set {
+            guard newValue != storedShowsMenuBarExtra else { return }
+            storedShowsMenuBarExtra = newValue
+            defaults.set(newValue, forKey: Key.showsMenuBarExtra)
+        }
+    }
+
+    /// The global shortcut that opens Quick Add from any app. Default ⌥Space; nil means off.
+    ///
+    /// A stored shortcut without ⌘, ⌥ or ⌃ (which would stop that key from typing everywhere) or one that
+    /// can't be read counts as the default.
+    var quickAddHotKey: HotKeyCombo? {
+        get { storedQuickAddHotKey }
+        set {
+            guard newValue != storedQuickAddHotKey else { return }
+            storedQuickAddHotKey = newValue
+            guard let newValue else {
+                defaults.set(Self.hotKeyOff, forKey: Key.quickAddHotKey)
+                return
+            }
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: Key.quickAddHotKey)
+            }
+        }
+    }
+
+    /// Whether the first-launch onboarding has been finished (or skipped). Default false; always true in
+    /// `-demo`, which never shows onboarding.
+    var hasCompletedOnboarding: Bool {
+        get { isDemo || storedHasCompletedOnboarding }
+        set {
+            guard newValue != storedHasCompletedOnboarding else { return }
+            storedHasCompletedOnboarding = newValue
+            defaults.set(newValue, forKey: Key.hasCompletedOnboarding)
+        }
+    }
+
+    /// Settings in their own throwaway store, for SwiftUI previews. Like `-demo`, previews skip onboarding.
     static var preview: AppSettings {
-        AppSettings(defaults: UserDefaults(suiteName: "io.github.visaug36.Ithil.preview") ?? .standard)
+        AppSettings(defaults: UserDefaults(suiteName: "io.github.visaug36.Ithil.preview") ?? .standard, isDemo: true)
     }
 
     // MARK: - Storage
@@ -80,10 +131,16 @@ final class AppSettings {
         static let appearance = "appearance"
         static let defaultAlert = "defaultAlertMinutes"
         static let firstWeekday = "firstWeekday"
+        static let showsMenuBarExtra = "showsMenuBarExtra"
+        static let quickAddHotKey = "quickAddHotKey"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
     /// Stored for "None", so a missing key can still mean "use the default".
     private static let noAlert = -1
+
+    /// Stored for a Quick Add shortcut that was turned off, so a missing key can still mean ⌥Space.
+    private static let hotKeyOff = "off"
 
     private static func readAppearance(from defaults: UserDefaults) -> AppearanceChoice {
         defaults.string(forKey: Key.appearance).flatMap { AppearanceChoice(rawValue: $0) } ?? .night
@@ -97,5 +154,17 @@ final class AppSettings {
     private static func readFirstWeekday(from defaults: UserDefaults) -> Int? {
         guard let weekday = defaults.object(forKey: Key.firstWeekday) as? Int else { return nil }
         return (1...7).contains(weekday) ? weekday : nil
+    }
+
+    private static func readQuickAddHotKey(from defaults: UserDefaults) -> HotKeyCombo? {
+        let stored = defaults.object(forKey: Key.quickAddHotKey)
+        if let text = stored as? String, text == hotKeyOff {
+            return nil
+        }
+        guard let data = stored as? Data,
+            let combo = try? JSONDecoder().decode(HotKeyCombo.self, from: data),
+            combo.hasRequiredModifier
+        else { return .optionSpace }
+        return combo
     }
 }

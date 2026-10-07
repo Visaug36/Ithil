@@ -207,7 +207,7 @@ final class NotificationsController: LibraryChangeObserver {
                     self?.handlePendingResponse()
                 }
             }
-        case .added, .updated, .deleted, .subjectsChanged:
+        case .added, .updated, .deleted, .subjectsChanged, .restored:
             scheduleSync()
         }
     }

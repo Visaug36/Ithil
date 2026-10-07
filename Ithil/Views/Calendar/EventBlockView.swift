@@ -8,6 +8,9 @@ import SwiftUI
 ///
 /// Files dropped on the block are copied into the event's folder: while they are over it, the block gets
 /// the drop ring and glow, and while they copy, a thin amber progress bar runs along its bottom.
+///
+/// Dragging the block moves the event and dragging its bottom edge changes its end (`eventBlockDrag`,
+/// `EventBlockResizeHandle`); with the block focused, ⌥↑ / ⌥↓ and ⌥⇧↑ / ⌥⇧↓ do the same from the keyboard.
 struct EventBlockView: View {
     @Environment(AppModel.self) private var model
     @Environment(FilesController.self) private var files
@@ -17,6 +20,8 @@ struct EventBlockView: View {
     /// Whether this block opens Quick Add's editor for its occurrence: only one segment of an event drawn
     /// across several days does, the first one on screen.
     let handlesPendingEditor: Bool
+    /// The grid's drag state and where this block's day column is.
+    let dragContext: TimeGridDragContext
     @State private var drag = FileDragState()
 
     var body: some View {
@@ -25,6 +30,7 @@ struct EventBlockView: View {
         let isSelected = model.selectedOccurrenceID == occurrence.id
         let density = EventBlockDensity(height: TimeGridGeometry.height(of: item) - TimeGridGeometry.blockGap)
         let fileCount = files.fileCount(for: occurrence)
+        let state = dragContext.state
         EventBlockLabel(occurrence: occurrence, subject: subject, density: density, fileCount: fileCount ?? 0)
             .background {
                 EventShapeBackground(subject: subject, isSelected: isSelected)
@@ -32,16 +38,26 @@ struct EventBlockView: View {
             .overlay(alignment: .bottom) {
                 EventBlockImportBar(occurrenceID: occurrence.id)
             }
+            .overlay(alignment: .bottom) {
+                if model.canEdit, !item.continuesAfter {
+                    EventBlockResizeHandle(item: item, context: dragContext)
+                }
+            }
             .opacity(CalendarEventStyle.opacity(for: occurrence, now: model.now, contrast: contrast))
             .modifier(EventBlockDropHighlight(isTargeted: drag.isTargeted))
             .contentShape(RoundedRectangle(cornerRadius: Metrics.Radius.eventBlock, style: .continuous))
             .fileDropTarget(isEnabled: model.canEdit, state: $drag) { urls in
                 files.addFiles(urls, to: occurrence)
             }
+            .eventBlockDrag(item: item, context: dragContext)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spokenLabel(for: occurrence, fileCount: fileCount))
             .accessibilityAddTraits(CalendarEventStyle.traits(isSelected: isSelected))
-            .eventInteraction(occurrence: occurrence, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor)
+            .eventInteraction(
+                occurrence: occurrence, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor,
+                claimsFocus: { state.claimsFocus(occurrence.id) }
+            )
+            .eventBlockKeyboardMoves(occurrence: occurrence, context: dragContext)
             .onAppear {
                 files.requestCounts(for: [occurrence])
             }

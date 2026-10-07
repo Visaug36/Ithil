@@ -15,6 +15,10 @@ enum LibraryChange {
     case deleted(Occurrence, scope: SeriesEditing.Scope)
     /// Subjects were added, edited or deleted.
     case subjectsChanged
+    /// Undo or Redo put back an earlier version of the library (`AppModel.restore`). `old` in the callback
+    /// is the library before, `new` the version put back. Observers bring what they keep in step back in
+    /// line; nothing is ever moved to the Trash in response.
+    case restored
 }
 
 /// Something that reacts to library changes. `AppModel` holds observers weakly and calls them on the main

@@ -141,13 +141,15 @@ private struct FolderPathLabel: View {
     }
 }
 
-/// The app icon, as Finder shows it.
-private struct AppIconImage: View {
+/// The app icon, as Finder shows it. Decorative, so VoiceOver skips it. Also used by onboarding.
+struct AppIconImage: View {
+    var size: CGFloat = 112
+
     var body: some View {
         Image(nsImage: NSApplication.shared.applicationIconImage)
             .resizable()
             .interpolation(.high)
-            .frame(width: 112, height: 112)
+            .frame(width: size, height: size)
             .accessibilityHidden(true)
     }
 }

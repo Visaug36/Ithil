@@ -15,6 +15,8 @@ private let logger = Logger(subsystem: "io.github.visaug36.Ithil", category: "Fi
 ///   one at a time, in the order it was asked for, so a rename never races a copy into the same folder.
 /// - Files are copied, never moved; folders and files go to the Trash, never deleted; nothing is written
 ///   outside the root. Folders are trashed only for occurrences the user deleted (after the UI asked).
+/// - Undo and Redo (`LibraryChange.restored`) carry folders back along, and folders trashed in this session
+///   come back from the Trash when their occurrences come back. A restore never trashes anything.
 /// - Work started for one library is dropped when another one opens (`session`).
 @Observable @MainActor
 final class FilesController: LibraryChangeObserver {
@@ -72,6 +74,8 @@ final class FilesController: LibraryChangeObserver {
     /// Edits and deletions made while the library was moving; their folders follow once it has moved.
     @ObservationIgnored private var changesDuringMove: [DeferredFolderChange] = []
     @ObservationIgnored private var previewFiles: [Occurrence.ID: [EventFile]] = [:]
+    /// Folders this session put in the Trash, by the occurrence they belonged to, so Undo can bring them back.
+    @ObservationIgnored private var trashedFolders: [Occurrence.ID: TrashedEventFolder] = [:]
 
     /// How long `requestCounts` collects requests before reading the disk.
     private static let countDelay: Duration = .milliseconds(50)
@@ -619,7 +623,7 @@ final class FilesController: LibraryChangeObserver {
         switch change {
         case .opened(let newRoot):
             startSession(at: newRoot)
-        case .updated, .deleted:
+        case .updated, .deleted, .restored:
             if isMovingLibrary {
                 changesDuringMove.append(DeferredFolderChange(change: change, old: old, new: new))
             } else {
@@ -630,13 +634,15 @@ final class FilesController: LibraryChangeObserver {
         }
     }
 
-    /// Carries folders along after an edit, or trashes them after a deletion.
+    /// Carries folders along after an edit or an Undo / Redo, or trashes them after a deletion.
     private func applyFolderChange(_ change: LibraryChange, old: Library, new: Library) {
         switch change {
         case .updated(let occurrence, _, let scope):
             carryFolders(of: occurrence, scope: scope, old: old, new: new)
         case .deleted(let occurrence, let scope):
             trashFolders(of: occurrence, scope: scope, old: old, new: new)
+        case .restored:
+            followRestore(old: old, new: new)
         case .opened, .added, .subjectsChanged:
             break
         }
@@ -660,6 +666,7 @@ final class FilesController: LibraryChangeObserver {
         }
         importJobs = [:]
         queuedSources = [:]
+        trashedFolders = [:]
         watcher?.stop()
         watcher = nil
         resolvedRootPath = nil
@@ -782,9 +789,47 @@ final class FilesController: LibraryChangeObserver {
         }
     }
 
+    /// After Undo or Redo: moves folders back along with the library put back, then brings back from the
+    /// Trash the folders of occurrences that came back. Never trashes anything.
+    private func followRestore(old: Library, new: Library) {
+        guard let folders else { return }
+        let restore = FolderRestore(old: old, new: new, timeZone: model.timeZone)
+        let session = self.session
+        enqueueWork { [weak self] in
+            let report = await folders.followRestore(restore)
+            self?.folderWorkFinished(report, kind: .carry, session: session)
+            await self?.putBackTrashedFolders(cameBackFrom: old, session: session)
+        }
+    }
+
+    /// Brings back from the Trash every folder this session trashed whose occurrence this Undo or Redo
+    /// brought back: missing from `old`, the library before it, and in the library now (decided when the
+    /// work runs, so a quick Redo that deletes it again leaves it in the Trash). An occurrence that came
+    /// back some other way, such as a repeat rule running longer again, leaves its old folder in the Trash.
+    private func putBackTrashedFolders(cameBackFrom old: Library, session: Int) async {
+        guard session == self.session, let folders else { return }
+        let expander = OccurrenceExpander(displayTimeZone: model.timeZone)
+        var items: [TrashedEventFolder] = []
+        for (id, trashed) in trashedFolders {
+            if let event = old.event(withID: id.eventID), expander.occurrence(of: event, on: id.date) != nil {
+                continue
+            }
+            guard let current = model.occurrence(id: id) else { continue }
+            items.append(TrashedEventFolder(occurrence: current, trashedURL: trashed.trashedURL))
+            trashedFolders[id] = nil
+        }
+        guard !items.isEmpty else { return }
+        let report = await folders.putBack(items)
+        if report.changed > 0 {
+            logger.info("Brought \(report.changed, privacy: .public) event folders back from the Trash")
+        }
+        folderWorkFinished(report, kind: .putBack, session: session)
+    }
+
     private enum FolderWorkKind {
         case carry
         case trash
+        case putBack
     }
 
     private func folderWorkFinished(_ report: EventFolderWorkReport, kind: FolderWorkKind, session: Int) {
@@ -793,12 +838,17 @@ final class FilesController: LibraryChangeObserver {
             let reason = String(describing: failure.error)
             logger.error("Folder change failed for \(failure.title, privacy: .private): \(reason, privacy: .private)")
         }
+        for item in report.trashed {
+            trashedFolders[item.occurrence.id] = item
+        }
         if let failure = report.failures.first {
             switch kind {
             case .carry:
                 lastError = FileMessages.couldNotRenameFolder(title: failure.title, error: failure.error)
             case .trash:
                 lastError = FileMessages.couldNotTrashFolder(title: failure.title, error: failure.error)
+            case .putBack:
+                lastError = FileMessages.couldNotPutBackFolder(title: failure.title, error: failure.error)
             }
         }
         if report.changed > 0 || !report.failures.isEmpty {

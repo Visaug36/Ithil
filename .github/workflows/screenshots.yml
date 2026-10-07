@@ -1,0 +1,55 @@
+name: Screenshots
+
+# Builds Ithil, takes the README screenshots from the -demo sample week on a real macOS runner, and commits them
+# to docs/images on the branch it ran on. Run it by hand from the Actions tab after visual changes.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  XCODE_MAJOR: "26"
+
+jobs:
+  screenshots:
+    name: Take screenshots
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app | grep -vi beta | sort -V | tail -n 1)
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build -project Ithil.xcodeproj -scheme Ithil -configuration Release \
+            -destination 'platform=macOS' -derivedDataPath build/DerivedData -quiet
+
+      - name: Capture
+        run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: docs/images/*.png
+
+      - name: Commit screenshots
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/images/*.png
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git commit -m "Update README screenshots"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
