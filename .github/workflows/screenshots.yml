@@ -5,6 +5,14 @@ name: Screenshots
 
 on:
   workflow_dispatch:
+  # Also when the screenshot tooling changes on a working branch, so the images can be refreshed without
+  # dispatch rights. The commit it pushes doesn't trigger another run.
+  push:
+    branches:
+      - "claude/**"
+    paths:
+      - "scripts/screenshots/**"
+      - ".github/workflows/screenshots.yml"
 
 permissions:
   contents: write
