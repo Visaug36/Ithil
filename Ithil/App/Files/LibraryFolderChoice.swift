@@ -88,8 +88,9 @@ enum LibraryFolderChoice: Equatable, Sendable {
     private static func removeIfCompletelyEmpty(_ folder: URL) {
         let contents = try? FileManager.default.contentsOfDirectory(atPath: folder.path)
         guard contents?.isEmpty == true else { return }
-        let removed = folder.withUnsafeFileSystemRepresentation { path in
-            path.map { rmdir($0) == 0 } ?? false
+        let removed: Bool = folder.withUnsafeFileSystemRepresentation { (path: UnsafePointer<CChar>?) -> Bool in
+            guard let path else { return false }
+            return rmdir(path) == 0
         }
         if !removed {
             logger.notice("Could not remove the empty folder made for a failed move")
