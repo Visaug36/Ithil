@@ -50,7 +50,8 @@ struct FilesSettingsView: View {
                 prompt: prompt,
                 isPresented: $showsPrompt,
                 onOpen: { folder in files.openLibrary(at: folder) },
-                onMove: { chosen in moveLibrary(to: chosen) }))
+                onMove: { chosen in moveLibrary(to: chosen) })
+        )
         .alert("Couldn't Move Your Calendar", isPresented: $showsMoveError) {
             Button("OK", role: .cancel) {}
         } message: {
