@@ -105,7 +105,7 @@ Keep this section current. Newest first.
 - Increase Contrast color variants: Phase 5.
 
 ### Status
-- 2026-10-07: Phase 3/4 app layer (notifications wiring and UI, file controller, files UI) is being built. A usage limit interrupted the first run; it was resumed.
+- 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).
 - 2026-10-06:
   - Phase 2 merged (https://github.com/Visaug36/Ithil/pull/4), together with the Phase 3 and 4 IthilCore logic: 312 tests, zero warnings, universal build.
   - Release workflow, `scripts/install.sh`, community files, issue and PR templates, `docs/RELEASE_CHECKLIST.md` and `docs/social-preview.png` were added on the branch.
