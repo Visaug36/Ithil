@@ -46,10 +46,10 @@ shot() {
         [[ -n "$pid" ]] || continue
         bounds=$(build/window-bounds "$pid" 2> /dev/null || true)
         [[ -n "$bounds" ]] && break
-        if [[ $attempt -eq 20 ]]; then
-            # On the CI runner SwiftUI sometimes doesn't open the main window at launch. Reopening the app
-            # (what clicking its Dock icon does) makes it open one.
-            echo "$name: no window after 10 s, reopening"
+        if [[ $attempt -eq 10 ]]; then
+            # On the CI runner SwiftUI doesn't open the main window at launch. Reopening the app (what
+            # clicking its Dock icon does) makes it open one.
+            echo "$name: no window after 5 s, reopening"
             open -a "$app"
         fi
     done
