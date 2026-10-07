@@ -1,8 +1,10 @@
+import AppKit
 import IthilCore
 import SwiftUI
 
 /// General: appearance (Night, Dawn, Match System), the default alert for new events, the first day of
-/// the week, and whether macOS lets Ithil show notifications.
+/// the week, the Quick Add shortcut, launch at login, the menu bar extra, and whether macOS lets Ithil
+/// show notifications.
 struct GeneralSettingsView: View {
     @Environment(AppSettings.self) private var settings
 
@@ -20,12 +22,163 @@ struct GeneralSettingsView: View {
                     .font(Typography.eventTime)
                     .foregroundStyle(Color.textTertiary)
             }
+            QuickAddShortcutSection()
+            StartupSettingsSection()
             NotificationSettingsSection()
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(Color.backgroundWindow)
-        .frame(height: 450)
+        .frame(height: 620)
+    }
+}
+
+/// "Quick Add shortcut": the recorder and Reset, with a footnote that says what the shortcut does, guides
+/// while recording, or warns when another app has the shortcut.
+private struct QuickAddShortcutSection: View {
+    @Environment(AppSettings.self) private var settings
+    @State private var isRecording = false
+
+    private var hotKeys: QuickAddHotKeyController { .shared }
+
+    var body: some View {
+        @Bindable var settings = settings
+        Section {
+            LabeledContent("Quick Add shortcut") {
+                HStack(spacing: 8) {
+                    HotKeyRecorder(Text("Quick Add shortcut"), combo: $settings.quickAddHotKey) { recording in
+                        recordingChanged(recording)
+                    }
+                    Button("Reset") {
+                        settings.quickAddHotKey = .optionSpace
+                    }
+                    .disabled(isRecording || settings.quickAddHotKey == .optionSpace)
+                    .accessibilityLabel(Text("Reset Quick Add Shortcut"))
+                    .accessibilityHint(Text("Sets the shortcut back to ⌥Space"))
+                }
+            }
+        } footer: {
+            footer
+                .font(Typography.eventTime)
+                .foregroundStyle(Color.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder private var footer: some View {
+        if isRecording {
+            Text("Press the new keys, with ⌘, ⌥ or ⌃ but not a menu shortcut. Esc cancels; ⌫ turns it off.")
+        } else if settings.quickAddHotKey == nil {
+            Text("Quick Add has no shortcut. While Ithil is in front, ⌘N still opens it.")
+        } else if hotKeys.status == .unavailable {
+            Label {
+                Text("Another app is using this shortcut. Choose a different one.")
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .symbolRenderingMode(.multicolor)
+            }
+            .foregroundStyle(Color.textSecondary)
+        } else {
+            Text("Opens Quick Add from any app.")
+        }
+    }
+
+    /// While recording, the global shortcut steps aside so the current one can be typed again.
+    private func recordingChanged(_ recording: Bool) {
+        isRecording = recording
+        if recording {
+            hotKeys.suspend()
+        } else {
+            hotKeys.resume()
+        }
+    }
+}
+
+/// "Launch at login" and "Show in menu bar", as amber switches. Launch at login reads what macOS says
+/// whenever Settings appears or Ithil becomes active, because it can also be changed in System Settings.
+private struct StartupSettingsSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppSettings.self) private var settings
+    @State private var launchStatus = LaunchAtLogin.Status.off
+    @State private var launchesAtLogin = false
+    @State private var launchChangeFailed = false
+
+    var body: some View {
+        @Bindable var settings = settings
+        Section {
+            Toggle("Launch at login", isOn: $launchesAtLogin)
+                .toggleStyle(.switch)
+                .tint(Color.accentColor)
+                .disabled(model.isDemo)
+                .onChange(of: launchesAtLogin) { _, wanted in
+                    changeLaunchAtLogin(to: wanted)
+                }
+                .onAppear {
+                    refreshLaunchStatus()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    refreshLaunchStatus()
+                }
+            if launchStatus == .requiresApproval, !model.isDemo {
+                LoginItemApprovalRow()
+            }
+            Toggle("Show in menu bar", isOn: $settings.showsMenuBarExtra)
+                .toggleStyle(.switch)
+                .tint(Color.accentColor)
+        } footer: {
+            footer
+                .font(Typography.eventTime)
+                .foregroundStyle(Color.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var footer: Text {
+        if model.isDemo {
+            return Text("Demo mode never changes your login items.")
+        }
+        if launchChangeFailed {
+            return Text("macOS didn't allow that. Add Ithil in System Settings → General → Login Items.")
+        }
+        return Text("The moon in the menu bar shows what's next and opens Quick Add.")
+    }
+
+    private func refreshLaunchStatus() {
+        launchStatus = LaunchAtLogin.status
+        launchesAtLogin = launchStatus != .off
+    }
+
+    /// Also runs when `refreshLaunchStatus` updates the switch, so it acts only on a real change.
+    private func changeLaunchAtLogin(to wanted: Bool) {
+        guard !model.isDemo, wanted != (launchStatus != .off) else { return }
+        do {
+            try LaunchAtLogin.set(wanted)
+            launchChangeFailed = false
+        } catch {
+            launchChangeFailed = true
+        }
+        refreshLaunchStatus()
+    }
+}
+
+/// Shown when Ithil is registered to open at login but switched off in System Settings.
+private struct LoginItemApprovalRow: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Switched off in System Settings → General → Login Items.")
+                Text("Ithil opens at login once you switch it on there.")
+            }
+            .font(Typography.secondary)
+            .foregroundStyle(Color.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 0)
+            Button("Open Login Items…") {
+                LaunchAtLogin.openLoginItemsSettings()
+            }
+            .accessibilityHint(Text("Opens System Settings → General → Login Items"))
+        }
     }
 }
 

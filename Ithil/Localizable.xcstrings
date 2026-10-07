@@ -161,7 +161,13 @@
     "1 minute before" : {
 
     },
+    "A calm calendar for your classes, with every event’s files close at hand." : {
+
+    },
     "A quiet day." : {
+
+    },
+    "About Ithil" : {
 
     },
     "Add" : {
@@ -209,6 +215,9 @@
     "All-day" : {
 
     },
+    "Another app is using this shortcut. Choose a different one." : {
+
+    },
     "Appearance" : {
 
     },
@@ -218,16 +227,25 @@
     "At time of event" : {
 
     },
+    "Back" : {
+
+    },
     "Cancel" : {
 
     },
     "Change Ithil Folder" : {
 
     },
+    "Change the end of “%@”?" : {
+      "comment" : "Asked before resizing a repeating event; the event title"
+    },
     "Changes made after that may be missing." : {
 
     },
     "Change…" : {
+
+    },
+    "Check for Updates…" : {
 
     },
     "Checking…" : {
@@ -270,6 +288,9 @@
 
     },
     "Color" : {
+
+    },
+    "Continue" : {
 
     },
     "Copied into %@" : {
@@ -334,6 +355,9 @@
     "Delete “%@”?" : {
 
     },
+    "Demo mode never changes your login items." : {
+
+    },
     "Demo mode never schedules notifications, so your real alerts stay as they are." : {
 
     },
@@ -367,11 +391,17 @@
     "Each event gets its own folder, like 2026-10-06/14.00 Physics Lecture." : {
 
     },
+    "Each event’s files live in their own Finder folder, so you can open them anywhere." : {
+
+    },
     "Edit" : {
 
     },
     "Edit Event" : {
 
+    },
+    "Edit Subjects" : {
+      "comment" : "Undo action name: subjects were added, edited or deleted"
     },
     "End Time" : {
 
@@ -415,8 +445,14 @@
     "Files can't be added right now, because no calendar is open for changes." : {
 
     },
+    "Files in real folders" : {
+
+    },
     "Files · %lld" : {
       "comment" : "Section label above an event's files, with how many"
+    },
+    "Find…" : {
+
     },
     "First day of week" : {
 
@@ -434,6 +470,9 @@
 
     },
     "Get a nudge before class" : {
+
+    },
+    "Goes back to the welcome page" : {
 
     },
     "Hidden" : {
@@ -460,8 +499,14 @@
     "It's no longer there." : {
 
     },
+    "It's still in the Trash." : {
+
+    },
     "It's still in your Ithil folder." : {
 
+    },
+    "Ithil" : {
+      "comment" : "The app's name"
     },
     "Ithil already keeps your calendar in that folder." : {
 
@@ -475,10 +520,16 @@
     "Ithil can't find its folder, or a file has the name a folder needs." : {
 
     },
+    "Ithil can't find its folder. Open Ithil to locate it." : {
+
+    },
     "Ithil can't find its folder. Your changes are still open in Ithil." : {
 
     },
     "Ithil can't open this calendar" : {
+
+    },
+    "Ithil can't open your calendar. Open Ithil to see why." : {
 
     },
     "Ithil can't use that folder" : {
@@ -486,6 +537,9 @@
     },
     "Ithil can't use that folder. Choose another one." : {
 
+    },
+    "Ithil couldn't bring the folder of “%@” back from the Trash." : {
+      "comment" : "Undo couldn’t restore an event folder; the event title"
     },
     "Ithil couldn't copy the files." : {
 
@@ -553,6 +607,12 @@
     "Ithil left the file as it was." : {
 
     },
+    "Ithil on GitHub" : {
+
+    },
+    "Ithil opens at login once you switch it on there." : {
+
+    },
     "Ithil reminds you before events that have an alert, even when it's closed." : {
 
     },
@@ -577,6 +637,9 @@
     "Keywords" : {
 
     },
+    "Launch at login" : {
+
+    },
     "Locate Folder…" : {
 
     },
@@ -586,11 +649,29 @@
     "Location" : {
 
     },
+    "MIT License" : {
+
+    },
+    "Make 15 Minutes Longer" : {
+
+    },
+    "Make 15 Minutes Shorter" : {
+
+    },
     "Match System" : {
 
     },
     "Month" : {
 
+    },
+    "Move 15 Minutes Earlier" : {
+
+    },
+    "Move 15 Minutes Later" : {
+
+    },
+    "Move Event" : {
+      "comment" : "Undo action name: an event was dragged, resized or moved with the keyboard"
     },
     "Move Everything" : {
 
@@ -609,6 +690,9 @@
     },
     "Move “%@” to the Trash?" : {
 
+    },
+    "Move “%@”?" : {
+      "comment" : "Asked before moving a repeating event; the event title"
     },
     "Moves your calendar to another folder, or opens another Ithil folder" : {
 
@@ -646,10 +730,25 @@
     "Next Week" : {
 
     },
+    "Next, %@" : {
+      "comment" : "Menu bar: the next event's weekday or date"
+    },
+    "Next, in %lld min" : {
+      "comment" : "Menu bar: the next event starts in N minutes"
+    },
+    "Next, today" : {
+      "comment" : "Menu bar: the next event is later today"
+    },
+    "Next, tomorrow" : {
+      "comment" : "Menu bar: the next event is tomorrow"
+    },
     "Night" : {
 
     },
     "No Subject" : {
+
+    },
+    "No account, no internet. Everything stays on your Mac, in a folder you choose." : {
 
     },
     "No app on this Mac could open “%@”." : {
@@ -688,6 +787,9 @@
     "Nothing coming up" : {
 
     },
+    "Nothing planned" : {
+
+    },
     "Nothing planned. Press ⌘N to add something." : {
 
     },
@@ -715,13 +817,28 @@
     "Off in demo mode" : {
 
     },
+    "Offline and private" : {
+
+    },
     "On" : {
+
+    },
+    "One more thing before your calendar opens." : {
 
     },
     "Open" : {
 
     },
     "Open Files" : {
+
+    },
+    "Open Ithil" : {
+
+    },
+    "Open Ithil and choose a folder for your calendar to get started." : {
+
+    },
+    "Open Login Items…" : {
 
     },
     "Open Settings…" : {
@@ -742,13 +859,43 @@
     "Opening your calendar" : {
 
     },
+    "Opening your calendar…" : {
+
+    },
     "Opens Ithil in System Settings → Notifications" : {
+
+    },
+    "Opens Quick Add from any app." : {
+
+    },
+    "Opens System Settings → General → Login Items" : {
+
+    },
+    "Opens an Ithil folder you already have, or creates one inside the folder you pick" : {
+
+    },
+    "Opens in your browser" : {
 
     },
     "Opens the file" : {
 
     },
+    "Opens your calendar without turning on notifications" : {
+
+    },
     "Past" : {
+
+    },
+    "Press %@ in any app and type “physics quiz thursday 10am”." : {
+      "comment" : "Onboarding: the global Quick Add shortcut, e.g. ⌥Space"
+    },
+    "Press the new keys, with ⌘, ⌥ or ⌃ but not a menu shortcut. Esc cancels; ⌫ turns it off." : {
+
+    },
+    "Press the new shortcut. Escape cancels, Delete turns the shortcut off." : {
+
+    },
+    "Press ⌘N and type “physics quiz thursday 10am”." : {
 
     },
     "Previous" : {
@@ -766,10 +913,25 @@
     "Quick Add" : {
 
     },
+    "Quick Add from anywhere" : {
+
+    },
+    "Quick Add has no shortcut. While Ithil is in front, ⌘N still opens it." : {
+
+    },
     "Quick Add picks a subject when you type its name or a keyword." : {
 
     },
+    "Quick Add shortcut" : {
+
+    },
+    "Quick Add…" : {
+
+    },
     "Quick Look" : {
+
+    },
+    "Quit Ithil" : {
 
     },
     "Read-only: this calendar was saved by a newer version of Ithil. Update Ithil to make changes." : {
@@ -778,10 +940,25 @@
     "Reconnect the drive or put the folder back, then try again." : {
 
     },
+    "Recording" : {
+
+    },
+    "Records a new shortcut" : {
+
+    },
     "Repeat" : {
 
     },
     "Repeats" : {
+
+    },
+    "Report an Issue…" : {
+
+    },
+    "Reset" : {
+
+    },
+    "Reset Quick Add Shortcut" : {
 
     },
     "Rose" : {
@@ -796,6 +973,12 @@
     "Separate keywords with commas" : {
 
     },
+    "Sets the shortcut back to ⌥Space" : {
+
+    },
+    "Settings…" : {
+
+    },
     "Show Today" : {
 
     },
@@ -803,6 +986,9 @@
 
     },
     "Show in Finder" : {
+
+    },
+    "Show in menu bar" : {
 
     },
     "Show the event’s folder in Finder" : {
@@ -814,23 +1000,46 @@
     "Shows or hides this subject's events" : {
 
     },
+    "Shows the day in Ithil" : {
+
+    },
+    "Shows the event in Ithil" : {
+
+    },
     "Shows the event in the calendar" : {
 
     },
     "Shows your Ithil folder in Finder" : {
 
     },
+    "Skip" : {
+
+    },
     "Something with that name is already there." : {
 
     },
     "Space" : {
-      "comment" : "The Space bar, which shows a file in Quick Look"
+      "comment" : "The Space bar: shows a file in Quick Look, and names the key in a shortcut such as ⌥Space"
     },
     "Start Time" : {
 
     },
     "Start a New Calendar Here" : {
 
+    },
+    "Stay on time" : {
+
+    },
+    "Step %lld of %lld" : {
+      "comment" : "Onboarding: which page is shown, for VoiceOver",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
     },
     "Stop Copying" : {
 
@@ -851,6 +1060,9 @@
 
     },
     "Suggested: %@" : {
+
+    },
+    "Switched off in System Settings → General → Login Items." : {
 
     },
     "System Default (%@)" : {
@@ -893,6 +1105,9 @@
 
     },
     "The folders of the deleted events, with any files in them, are moved to the Trash." : {
+
+    },
+    "The moon in the menu bar shows what's next and opens Quick Add." : {
 
     },
     "There isn't enough space on the disk." : {
@@ -958,6 +1173,9 @@
     "Turn them on in System Settings → Notifications → Ithil." : {
 
     },
+    "Type Shortcut" : {
+
+    },
     "Type what it is, the day and the time." : {
 
     },
@@ -979,13 +1197,30 @@
     "Use This Folder" : {
 
     },
+    "Version %@ (%@)" : {
+      "comment" : "About window: the version and build",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "View" : {
 
     },
     "Week" : {
 
     },
+    "Welcome to Ithil" : {
+
+    },
     "Yesterday" : {
+
+    },
+    "You can change this later in Settings." : {
 
     },
     "You can put it back from the Trash in Finder." : {
@@ -1021,6 +1256,9 @@
     "in %lld min" : {
       "comment" : "Up next: starts in N minutes"
     },
+    "macOS didn't allow that. Add Ithil in System Settings → General → Login Items." : {
+
+    },
     "to" : {
       "comment" : "Between an event's start and end time"
     },
@@ -1038,6 +1276,9 @@
       }
     },
     "“%@” has 1 file. Its folder will be moved to the Trash." : {
+
+    },
+    "“Ithil” is Tolkien’s Sindarin word for the moon. Not affiliated with the Tolkien Estate." : {
 
     },
     "↩ Add" : {

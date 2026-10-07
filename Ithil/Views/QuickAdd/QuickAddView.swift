@@ -2,13 +2,13 @@ import IthilCore
 import SwiftUI
 
 /// The Quick Add panel's content: a crescent and the input, a preview of the event Return would add, and
-/// a footer with the matched subject and the key hints.
+/// a footer with the matched subject and the key hints, on the floating-panel background
+/// (`raisedPanelBackground`: `BackgroundRaised` with a hairline, and a Liquid Glass rim from macOS 26).
 struct QuickAddView: View {
     @Bindable var session: QuickAddSession
 
     var body: some View {
         let draft = session.draft
-        let shape = RoundedRectangle(cornerRadius: Metrics.Radius.panel, style: .continuous)
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "moon.fill")
@@ -29,11 +29,7 @@ struct QuickAddView: View {
             QuickAddFooter(draft: draft)
         }
         .frame(width: 520)
-        .background(Color.backgroundRaised, in: shape)
-        .overlay {
-            shape.strokeBorder(Color.separatorLine, lineWidth: 1)
-        }
-        .clipShape(shape)
+        .raisedPanelBackground(cornerRadius: Metrics.Radius.panel)
     }
 }
 

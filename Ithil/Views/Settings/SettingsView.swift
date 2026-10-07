@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The Settings window: General, Subjects and Files tabs.
 ///
-/// General also shows the notification permission; Files changes or moves the folder. Launch at login, the
-/// menu bar extra and the Quick Add hotkey join General in a later phase.
+/// General also has the Quick Add shortcut, launch at login, the menu bar extra and the notification
+/// permission; Files changes or moves the folder.
 struct SettingsView: View {
     var body: some View {
         TabView {

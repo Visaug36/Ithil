@@ -9,7 +9,8 @@ import SwiftUI
 ///   today is on screen. The grid opens an hour before now when today is visible, otherwise at 08:00, and
 ///   again whenever the days change.
 /// - A Day view with nothing on it shows the "A quiet day." empty state instead of the grid.
-/// - ← / → step by the span while the calendar has keyboard focus.
+/// - ← / → step by the span while the calendar has keyboard focus, and Delete deletes the selected event
+///   (after asking). Blocks can be dragged to move them and resized at their bottom edge (`TimeGridView`).
 struct DayWeekView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var isFocused: Bool
@@ -23,6 +24,7 @@ struct DayWeekView: View {
             .focused($isFocused)
             .focusEffectDisabled()
             .calendarArrowKeys()
+            .calendarDeleteCommand()
             .onAppear {
                 focusUnlessSearching()
             }

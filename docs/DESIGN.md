@@ -54,6 +54,48 @@ shifted just enough to pass:
 
 `TextOnAccent` on `AccentColor`: 9.7 (Night), 7.1 (Dawn).
 
+### Increase Contrast
+
+With **Increase Contrast** on (System Settings → Accessibility → Display), the tokens that carry text or
+lines switch to stronger values. They are the asset catalog's High Contrast variants
+(`{"appearance": "contrast", "value": "high"}`, combined with `luminosity: dark` for Night). Backgrounds,
+amber fills and subject colors stay as they are. Views that draw their own borders (buttons, drop zones,
+event blocks) also strengthen them when `colorSchemeContrast == .increased`.
+
+| Token | Night | Dawn |
+|---|---|---|
+| `TextSecondary` | `#C8CBD6` | `#383C52` |
+| `TextTertiary` | `#B8BBC9` | `#454A5D` |
+| `AccentText` | `#FFCF8A` | `#623A0D` |
+| `SeparatorLine` | `rgba(237,230,211,0.40)` | `rgba(27,35,64,0.50)` |
+| `ControlFill` | `rgba(237,230,211,0.16)` | `rgba(27,35,64,0.12)` |
+
+Text tokens reach 7:1 (WCAG AAA) on every background they're used on:
+
+| Token | Theme | On window | On sidebar | On raised | On menu |
+|---|---|---|---|---|---|
+| `TextSecondary` | Night | 10.6 | 11.2 | 9.2 | 8.3 |
+| `TextTertiary` | Night | 9.0 | 9.5 | 7.8 | 7.1 |
+| `AccentText` | Night | 11.9 | 12.6 | 10.3 | 9.4 |
+| `TextSecondary` | Dawn | 10.1 | 9.1 | 10.6 | — |
+| `TextTertiary` | Dawn | 8.1 | 7.3 | 8.6 | — |
+| `AccentText` | Dawn | 9.1 | 8.2 | 9.6 | — |
+
+(Dawn `BackgroundMenu` is the same color as `BackgroundRaised`.)
+
+- `AccentText` on an `AccentSoft` row (the highlighted "Up next" row): Night 9.4 on the sidebar,
+  7.6 on raised; Dawn 7.4 on the sidebar, 8.5 on raised.
+- `SeparatorLine` lines reach 3:1 against the surface they're drawn on (WCAG 1.4.11 non-text contrast):
+  Night 3.3 window, 3.3 sidebar, 3.1 raised, 3.0 menu; Dawn 3.1 window, 3.0 sidebar, 3.1 raised (up from
+  about 1.2).
+- `ControlFill` doubles its opacity, so pills, fields and the mini month's week stand out (1.5:1 Night,
+  1.3:1 Dawn against the surface, up from 1.2 and 1.1) while text on them stays readable: `TextPrimary`
+  on the fill is at least 7.0 (Night, on a menu; 7.7 on raised) and 10.2 (Dawn), and `TextSecondary` at
+  least 5.4 (Night) and 7.2 (Dawn).
+
+Ratios are WCAG 2 relative-luminance contrast ratios, with translucent tokens composited over each
+background first.
+
 ### Subject palette
 
 Users create their own subjects and pick one of these colors (or a custom one). The names in brackets
@@ -177,6 +219,10 @@ A nonactivating floating `NSPanel`, radius 14, `BackgroundRaised`, over a starry
   and an alert capsule (`bell` "10 min before", `ControlFill`).
 - Footer (11 pt `TextTertiary`, separated by a line): left "Subject matched from "physics""; right the
   key hints "↩ Add", "⌘↩ Add and edit", "esc Close".
+- **Liquid Glass (macOS 26+ only):** the panel keeps its opaque `BackgroundRaised` fill and hairline, inset
+  2 pt over a `.glassEffect(.regular)` in the panel's shape, so only a thin glass rim (with its own lit
+  edge) shows around it. Every word stays on the opaque token color, so the contrast below holds whatever is
+  behind the panel. macOS 14 and 15 are unchanged (`RaisedPanelBackground`).
 
 ### 5. New / edit event popover
 
@@ -224,6 +270,14 @@ panel:
 - Divider, then menu-style rows with shortcuts on the right: "Quick Add… ⌥Space", "Open Ithil ⌘O",
   "Settings… ⌘,", "Quit Ithil ⌘Q".
 
+As built: `MenuBarExtra(isInserted: $settings.showsMenuBarExtra)` with a `moon.fill` template label, 300 pt
+wide. "N files" on the Next card uses `TextSecondary` (`TextTertiary` on the amber card is about 3.4:1 in
+Night, below AA), and "Open Files" with the count shows only once the event has files. Past rows are dimmed by
+switching to the quieter text tokens, not by lowering opacity, so they stay above AA. Each day list shows up
+to 6 rows, then "N more". The Quick Add row shows the shortcut from Settings and is disabled while the
+calendar can't be edited. On macOS 26 the system draws the window as Liquid Glass; the content keeps its
+opaque `BackgroundRaised` background on every version (no glass on glass).
+
 ### 9. Settings (General / Subjects / Files)
 
 `Settings` scene, toolbar-style tabs with symbols: General (`gearshape`-like sun icon in the design,
@@ -236,8 +290,14 @@ amber when selected), Subjects (`circle.grid.2x2`), Files (`folder`). Title area
   its own folder, like 2026-10-06/14.00 Physics Lecture."
 - **Launch at login** and **Show in menu bar**: amber switches. Launch at login uses
   `SMAppService.mainApp`.
-- Also required by the brief: first weekday, Quick Add hotkey (General); subject management (Subjects);
-  folder location and move (Files).
+- **Quick Add shortcut**: a recorder field showing "⌥Space" (`ControlFill` capsule; "Type Shortcut" in
+  amber inside the selection ring while recording) and "Reset". Esc cancels, ⌫ turns it off ("Off"); a
+  shortcut needs ⌘, ⌥ or ⌃ and can't be one of Ithil's own menu shortcuts. The footnote warns "Another app
+  is using this shortcut. Choose a different one." when registration fails.
+- **Launch at login**: when macOS needs approval, a row says it's switched off in System Settings → General →
+  Login Items, with "Open Login Items…".
+- Also required by the brief: first weekday (General); subject management (Subjects); folder location and
+  move (Files).
 
 ### 10. Empty states
 
@@ -250,6 +310,28 @@ centered, on a starry background.
   too."
 - **No search results**: the search field focused with an amber ring, showing "chemistry"; `EmptySearch`;
   "Nothing by that name." / "No events match "chemistry"."
+
+### 11. Onboarding (first launch)
+
+Not drawn in the design; built from the folder screens' style. Three short pages on `BackgroundWindow`
+with stars, each centered and at most 440 pt wide: the app icon (96 pt), a New York headline 26 pt in
+`TextPrimary`, one line in 13 pt `TextSecondary`, the page's content, then its buttons (amber prominent
+with `TextOnAccent`, or quiet `ControlFill`). Three 7 pt step dots sit centered along the bottom: the
+current one amber, the others `TextTertiary` at 55 % (`TextSecondary` with Increase Contrast).
+
+1. **Welcome**: "Welcome to Ithil" / "A calm calendar for your classes, with every event’s files close at
+   hand." A `BackgroundRaised` card (radius 10, `SeparatorLine` border) with three points, each a
+   moonlight SF Symbol beside a 13 pt semibold title and a 12.5 pt secondary line: `lock` "Offline and
+   private", `folder` "Files in real folders", `keyboard` "Quick Add from anywhere" (with the current
+   shortcut, e.g. ⌥Space). "Continue" (amber, Return).
+2. **Choose folder**: the choose-folder screen's headline, explanation and buttons ("Create Ithil
+   Folder…" suggesting ~/Documents/Ithil, "Use Existing Folder…") and its backup footnote. "‹ Back" in
+   `AccentText` at the bottom left.
+3. **Notifications**: "Stay on time" / "One more thing before your calendar opens.", the notification
+   permission card (max 380 pt wide), then "Skip" (quiet, `AccentText`) until macOS has an answer and
+   "Continue" (amber) after. Footnote: "You can change this later in Settings."
+
+Pages slide in by 40 pt and fade (0.25 s); with Reduce Motion they only cross-fade.
 
 ## Screen → SwiftUI map
 
@@ -265,3 +347,4 @@ centered, on a starry background.
 | Menu bar | `MenuBarExtra("Ithil", systemImage: "moon.fill").menuBarExtraStyle(.window)`. Hidden when the Settings toggle is off. |
 | Settings | `Settings` scene, `TabView` (General, Subjects, Files), `Form.formStyle(.grouped)`. Appearance sets `NSApp.appearance` or nil for Match System. `SMAppService.mainApp` for launch at login. |
 | Empty states | `ContentUnavailableView`-style layout: illustration asset, New York headline, SF Pro secondary line. |
+| Onboarding | `OnboardingView(startAt:onFinish:)` in the main window: one `OnboardingPage` per step, `.transition` gated by `accessibilityReduceMotion`. The folder step reuses `ChooseFolderActions`; the last step reuses `NotificationPermissionView` and sets `AppSettings.hasCompletedOnboarding`. |

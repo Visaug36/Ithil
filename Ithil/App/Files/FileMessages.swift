@@ -69,6 +69,16 @@ enum FileMessages {
         ])
     }
 
+    /// Undo brought an event back, but its folder couldn't come back from the Trash.
+    static func couldNotPutBackFolder(title: String, error: any Error) -> String {
+        let isGone = (error as? CocoaError)?.code == .fileNoSuchFile
+        return joined([
+            String(localized: "Ithil couldn't bring the folder of “\(title)” back from the Trash."),
+            isGone ? "" : String(localized: "It's still in the Trash."),
+            reason(error),
+        ])
+    }
+
     static func couldNotTrashFile(name: String, error: any Error) -> String {
         joined([String(localized: "Ithil couldn't move “\(name)” to the Trash."), reason(error)])
     }

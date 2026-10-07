@@ -17,10 +17,17 @@ extension View {
     /// takes keyboard focus (focusing it selects it) and Return shows the details. VoiceOver's default
     /// action shows the details and an "Edit" action opens the editor. With `handlesPendingEditor`, it
     /// also opens the editor when Quick Add's ⌘↩ asks for this occurrence; only one view per occurrence
-    /// should, e.g. the first segment of an event drawn across two days.
-    func eventInteraction(occurrence: Occurrence, arrowEdge: Edge, handlesPendingEditor: Bool) -> some View {
+    /// should, e.g. the first segment of an event drawn across two days. When `claimsFocus` returns true
+    /// as the view appears, it takes keyboard focus (a block that a drag or ⌥-arrow key just moved).
+    func eventInteraction(
+        occurrence: Occurrence,
+        arrowEdge: Edge,
+        handlesPendingEditor: Bool,
+        claimsFocus: (@MainActor () -> Bool)? = nil
+    ) -> some View {
         let interaction = EventInteractionModifier(
-            occurrence: occurrence, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor)
+            occurrence: occurrence, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor,
+            claimsFocus: claimsFocus)
         return modifier(interaction)
     }
 }
@@ -32,6 +39,7 @@ private struct EventInteractionModifier: ViewModifier {
     let occurrence: Occurrence
     let arrowEdge: Edge
     let handlesPendingEditor: Bool
+    let claimsFocus: (@MainActor () -> Bool)?
 
     func body(content: Content) -> some View {
         content
@@ -61,6 +69,7 @@ private struct EventInteractionModifier: ViewModifier {
             }
             .onAppear {
                 openPendingEditor()
+                takeFocusIfClaimed()
             }
             .onChange(of: model.pendingEditorOccurrenceID) {
                 openPendingEditor()
@@ -97,6 +106,14 @@ private struct EventInteractionModifier: ViewModifier {
     private func showEditor() {
         model.selectedOccurrenceID = occurrence.id
         popover = model.isReadOnly ? .details : .editor
+    }
+
+    /// Focused on the next turn of the run loop, once the view that just appeared is in the window.
+    private func takeFocusIfClaimed() {
+        guard let claimsFocus, claimsFocus() else { return }
+        Task { @MainActor in
+            isFocused = true
+        }
     }
 
     private func openPendingEditor() {

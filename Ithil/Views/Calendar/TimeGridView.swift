@@ -8,12 +8,17 @@ struct TimeGridHourID: Hashable {
 
 /// The scrolling part of the Day and Week views: the time gutter, the hour lines and day separators, one
 /// column of event blocks per day, and the now indicator. No stars or glows here: the grid stays plain.
+///
+/// Blocks can be dragged to another time (and, in Week view, another day) or resized at their bottom edge;
+/// a translucent preview shows where they would land (`TimeGridDragState`). A repeating event asks "This
+/// Event Only" / "All Future Events" before it moves, and Cancel puts it back.
 struct TimeGridView: View {
     let days: [CalendarDate]
     /// How far above each hour line its scroll target sits: the pinned header's height plus the grid's
     /// top inset, so scrolling to an hour puts its line just below the header.
     let scrollAnchorOffset: CGFloat
     let onBackgroundClick: () -> Void
+    @State private var dragState = TimeGridDragState()
 
     var body: some View {
         GeometryReader { proxy in
@@ -23,17 +28,24 @@ struct TimeGridView: View {
                 HStack(alignment: .top, spacing: 0) {
                     TimeGridHourGutter(days: days)
                     ForEach(Array(days.enumerated()), id: \.element) { column, day in
+                        let context = TimeGridDragContext(
+                            state: dragState, day: day, column: column, dayCount: days.count, columnWidth: columnWidth)
                         TimeGridDayColumn(
                             day: day, column: column, dayCount: days.count, width: columnWidth,
-                            onBackgroundClick: onBackgroundClick)
+                            dragContext: context, onBackgroundClick: onBackgroundClick)
                     }
                 }
+                TimeGridDragPreviewView(state: dragState, columnWidth: columnWidth)
                 TimeGridNowIndicator(days: days, columnWidth: columnWidth)
                 TimeGridScrollAnchors(offset: scrollAnchorOffset)
             }
         }
         .frame(height: TimeGridGeometry.gridHeight)
         .padding(.vertical, TimeGridGeometry.verticalInset)
+        .modifier(TimeGridDragConfirmation(state: dragState))
+        .onChange(of: days) {
+            dragState.cancel()
+        }
     }
 }
 
@@ -127,6 +139,7 @@ private struct TimeGridDayColumn: View {
     let column: Int
     let dayCount: Int
     let width: CGFloat
+    let dragContext: TimeGridDragContext
     let onBackgroundClick: () -> Void
     @State private var draft: Event? = nil
     @State private var draftMinute = 9 * 60
@@ -137,7 +150,9 @@ private struct TimeGridDayColumn: View {
         let items = DayLayout.layout(occurrences, on: day, timeZone: model.timeZone, minimumMinutes: minimum)
         let arrowEdge = TimeGridGeometry.popoverEdge(column: column, dayCount: dayCount)
         ZStack(alignment: .topLeading) {
-            TimeGridDayBlocks(items: items, width: width, arrowEdge: arrowEdge, isFirstColumn: column == 0)
+            TimeGridDayBlocks(
+                items: items, width: width, arrowEdge: arrowEdge, isFirstColumn: column == 0,
+                dragContext: dragContext)
             newEventAnchor(arrowEdge: arrowEdge)
         }
         .frame(width: width, height: TimeGridGeometry.gridHeight, alignment: .topLeading)
@@ -188,16 +203,20 @@ private struct TimeGridDayBlocks: View {
     let arrowEdge: Edge
     /// The first day on screen: its segments of events that began earlier open Quick Add's editor.
     let isFirstColumn: Bool
+    let dragContext: TimeGridDragContext
 
     var body: some View {
         let selectedID = model.selectedOccurrenceID
         ForEach(items, id: \.occurrence.id) { item in
             let frame = TimeGridGeometry.blockFrame(for: item, columnWidth: width)
             let handlesPendingEditor = !item.continuesBefore || isFirstColumn
-            EventBlockView(item: item, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor)
-                .frame(width: frame.width, height: frame.height)
-                .position(x: frame.midX, y: frame.midY)
-                .zIndex(item.occurrence.id == selectedID ? 1 : 0)
+            EventBlockView(
+                item: item, arrowEdge: arrowEdge, handlesPendingEditor: handlesPendingEditor,
+                dragContext: dragContext
+            )
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
+            .zIndex(item.occurrence.id == selectedID ? 1 : 0)
         }
     }
 }

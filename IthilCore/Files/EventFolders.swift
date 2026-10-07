@@ -33,7 +33,8 @@ public enum EventFoldersError: Error, Equatable, Sendable {
 ///   through. Folders reached through such a link, and links in place of event folders, are ignored.
 /// - Nothing is deleted permanently: event folders go to the Trash. The only removals are of folders
 ///   that are completely empty (a day folder left behind, or a folder this actor just made when writing
-///   its marker failed), done with `rmdir`, which refuses a folder with anything in it.
+///   its marker failed), done with `rmdir`, which refuses a folder with anything in it. A trashed folder can
+///   be put back where it belongs (`restoreFolder(from:for:)`), so Undo brings back an event's files too.
 ///
 /// All disk work runs on the actor, off the caller's thread.
 public actor EventFolders {
@@ -209,15 +210,70 @@ public actor EventFolders {
 
     /// Moves the occurrence's folder to the Trash; never deletes it. Does nothing when there is none.
     /// Its day folder is removed afterwards if that is now completely empty.
-    public func trashFolder(for occurrence: Occurrence) throws {
-        guard let folder = existingFolder(for: occurrence) else { return }
+    ///
+    /// Returns where the folder is in the Trash now, for `restoreFolder(from:for:)`; nil when there was no
+    /// folder, or when the file system can't tell.
+    @discardableResult
+    public func trashFolder(for occurrence: Occurrence) throws -> URL? {
+        guard let folder = existingFolder(for: occurrence) else { return nil }
         guard isStrictlyInsideRoot(folder) else {
             throw EventFoldersError.outsideRoot(folder.path)
         }
         let day = folder.deletingLastPathComponent()
-        try fileSystem.trashItem(at: folder)
+        let trashed = try fileSystem.trashItemReturningURL(at: folder)
         removeDayFolderIfCompletelyEmpty(day)
         rescanDays([day.lastPathComponent])
+        return trashed
+    }
+
+    /// Puts a folder that `trashFolder(for:)` moved to the Trash back at the occurrence's expected path,
+    /// e.g. when the user undoes deleting the event. Returns the folder's new URL.
+    ///
+    /// - `trashed` must be a folder (not a symbolic link) whose marker names `occurrence`; anything else
+    ///   is left alone and this throws `CocoaError(.fileNoSuchFile)`: the folder that was trashed is no
+    ///   longer there.
+    /// - The occurrence must not have a folder already, so two folders never claim one occurrence:
+    ///   otherwise this throws `CocoaError(.fileWriteFileExists)`.
+    /// - Creates the day folder if needed, but never the root (`notADirectory` if it is missing). When the
+    ///   folder's name is taken, it gets " 2", " 3"… like Finder. Every place written to is checked to be
+    ///   inside the root first (`outsideRoot`).
+    ///
+    /// On failure the folder stays where it was, in the Trash.
+    public func restoreFolder(from trashed: URL, for occurrence: Occurrence) throws -> URL {
+        let isTrashedFolder = fileSystem.isDirectory(at: trashed) && !EventFoldersDisk.isSymbolicLink(trashed)
+        guard isTrashedFolder, readMarker(in: trashed)?.occurrenceID == occurrence.id else {
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSURLErrorKey: trashed])
+        }
+        // Never move the root, or a folder that holds it, into the root.
+        guard let rootComponents = EventFoldersDisk.resolvedComponents(of: root),
+            let trashedComponents = EventFoldersDisk.resolvedComponents(of: trashed),
+            !rootComponents.starts(with: trashedComponents)
+        else {
+            throw EventFoldersError.outsideRoot(trashed.path)
+        }
+        guard fileSystem.isDirectory(at: root) else {
+            throw EventFoldersError.notADirectory(root.path)
+        }
+        let dayName = FolderNaming.dayFolderName(for: occurrence)
+        if let existing = folderClaiming(occurrence, dayName: dayName) {
+            throw CocoaError(.fileWriteFileExists, userInfo: [NSURLErrorKey: existing])
+        }
+        let day = dayFolder(named: dayName)
+        let createdDay = try createDayFolderIfNeeded(day)
+        do {
+            let target = try freeFolderName(for: occurrence, in: day)
+            guard isStrictlyInsideRoot(target) else {
+                throw EventFoldersError.outsideRoot(target.path)
+            }
+            try fileSystem.moveItem(at: trashed, to: target)
+            rescanDays([dayName])
+            return target
+        } catch {
+            if createdDay {
+                removeIfCompletelyEmpty(day)
+            }
+            throw error
+        }
     }
 
     /// Rescans every day folder for markers, e.g. after the folder watcher saw changes in Finder.
@@ -388,6 +444,31 @@ public actor EventFolders {
             }
         }
         throw CocoaError(.fileWriteFileExists, userInfo: [NSURLErrorKey: day.appending(component: baseName)])
+    }
+
+    /// The first of "Name", "Name 2"… in `day` that nothing has taken, for a folder coming back from the
+    /// Trash.
+    private func freeFolderName(for occurrence: Occurrence, in day: URL) throws -> URL {
+        let baseName = FolderNaming.eventFolderName(for: occurrence)
+        for number in 1...Self.maximumSuffix {
+            let name = number == 1 ? baseName : "\(baseName) \(number)"
+            let candidate = day.appending(component: name, directoryHint: .isDirectory)
+            if !fileSystem.fileExists(at: candidate), !EventFoldersDisk.isSymbolicLink(candidate) {
+                return candidate
+            }
+        }
+        throw CocoaError(.fileWriteFileExists, userInfo: [NSURLErrorKey: day.appending(component: baseName)])
+    }
+
+    /// The marked folder the occurrence already has, at its expected path or anywhere in the index. Unlike
+    /// `existingFolder(for:)` it never adopts an unmarked folder, so a folder the user made meanwhile stays
+    /// theirs.
+    private func folderClaiming(_ occurrence: Occurrence, dayName: String) -> URL? {
+        let expected = expectedFolder(for: occurrence)
+        if case .marked(let found) = state(of: expected), found == occurrence.id {
+            return expected
+        }
+        return indexedFolder(for: occurrence.id, dayName: dayName)
     }
 
     /// Renames or moves a folder inside the root. When `destination` already exists it is `source` under

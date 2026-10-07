@@ -30,6 +30,9 @@ private let logger = Logger(subsystem: "io.github.visaug36.Ithil", category: "Ap
 ///   switching weeks and months stays instant with thousands of events.
 /// - `now`, `today` and `math` are kept current by `ClockMonitor` (minute ticks, day changes, time zone
 ///   and locale changes, wake). `math` is also rebuilt when `AppSettings.firstWeekday` changes.
+/// - Every change to events and subjects registers Undo with `undoManager`: a snapshot of the library
+///   before it, put back by `restore(_:actionName:)`, which registers Redo the same way. Opening a library
+///   clears both, and nothing is registered while the library can't be edited.
 @Observable @MainActor
 final class AppModel {
     // MARK: - Library
@@ -70,6 +73,22 @@ final class AppModel {
     var pendingEditorOccurrenceID: Occurrence.ID? = nil
     var visibleDays: [CalendarDate] { math.visibleDays(for: span, around: selectedDate) }
 
+    // MARK: - Undo
+
+    /// The main window's undo manager; `MainView` sets it from `@Environment(\.undoManager)`. Edit › Undo
+    /// and Redo there step through changes to events and subjects. Each step holds a copy of the library,
+    /// so at most `undoLevels` steps are kept.
+    @ObservationIgnored weak var undoManager: UndoManager? {
+        didSet {
+            if let undoManager, undoManager !== oldValue, undoManager.levelsOfUndo == 0 {
+                undoManager.levelsOfUndo = Self.undoLevels
+            }
+        }
+    }
+
+    /// How many Undo steps are kept (with thousands of events, each one holds a sizeable snapshot).
+    private static let undoLevels = 100
+
     // MARK: - Subjects
 
     /// Persisted per Mac, not in the library.
@@ -105,6 +124,9 @@ final class AppModel {
     @ObservationIgnored private var upNextCache: (key: UpNextKey, value: [Occurrence])?
     @ObservationIgnored private var searchCache: (key: SearchKey, value: [Occurrence])?
     @ObservationIgnored private var eventPositions: [UUID: Int]?
+    /// The last subject edit that registered Undo, so quick edits of one subject (typing its name,
+    /// dragging the color picker) become one Undo step.
+    @ObservationIgnored private var lastSubjectEdit: SubjectEditUndo?
 
     init(options: LaunchOptions, settings: AppSettings, defaults: UserDefaults) {
         let timeSource = options.timeSource
@@ -202,6 +224,7 @@ final class AppModel {
         }
         let old = library
         commit(updated)
+        registerUndo(restoring: old, action: .editSubjects)
         notifyObservers(.subjectsChanged, from: old)
     }
 
@@ -212,6 +235,7 @@ final class AppModel {
         updated.subjects[index] = subject
         let old = library
         commit(updated)
+        registerSubjectEditUndo(restoring: old, subjectID: subject.id)
         notifyObservers(.subjectsChanged, from: old)
     }
 
@@ -227,6 +251,7 @@ final class AppModel {
         }
         let old = library
         commit(updated)
+        registerUndo(restoring: old, action: .editSubjects)
         notifyObservers(.subjectsChanged, from: old)
         if hiddenSubjectIDs.contains(id) {
             hiddenSubjectIDs.remove(id)
@@ -392,16 +417,25 @@ final class AppModel {
         updated.events.append(event)
         let old = library
         commit(updated)
+        registerUndo(restoring: old, action: .addEvent)
         notifyObservers(.added(event), from: old)
     }
 
-    func update(_ occurrence: Occurrence, with edited: Event, scope: SeriesEditing.Scope) {
+    /// Applies an edit (`SeriesEditing.update`). `undoAction` names it in Edit › Undo: "Edit Event", or
+    /// "Move Event" when the calendar's drag or ⌥-arrow keys moved it.
+    func update(
+        _ occurrence: Occurrence,
+        with edited: Event,
+        scope: SeriesEditing.Scope,
+        undoAction: LibraryUndoAction = .editEvent
+    ) {
         guard canEdit else { return }
         var updated = library
         SeriesEditing.update(occurrence, with: edited, scope: scope, in: &updated, now: timeSource.now)
         guard updated != library else { return }
         let old = library
         commit(updated)
+        registerUndo(restoring: old, action: undoAction)
         notifyObservers(.updated(occurrence, edited: edited, scope: scope), from: old)
         if selectedOccurrenceID == occurrence.id, self.occurrence(id: occurrence.id) == nil {
             // A rescheduled single event keeps its ID and moves to its new day.
@@ -417,8 +451,75 @@ final class AppModel {
         guard updated != library else { return }
         let old = library
         commit(updated)
+        registerUndo(restoring: old, action: .deleteEvent)
         notifyObservers(.deleted(occurrence, scope: scope), from: old)
-        if let selected = selectedOccurrenceID, self.occurrence(id: selected) == nil {
+        clearSelectionIfGone()
+    }
+
+    // MARK: - Undo and Redo
+
+    /// Puts back an earlier version of the library for Undo or Redo, and registers the opposite step
+    /// (Redo after an Undo, Undo after a Redo) under the same name. Observers hear `.restored`: event
+    /// folders follow along, and folders trashed by the change being undone come back from the Trash.
+    ///
+    /// Ignored while the library can't be edited, and for a snapshot of another library.
+    func restore(_ snapshot: Library, actionName: String) {
+        guard canEdit, snapshot.id == library.id else { return }
+        let old = library
+        lastSubjectEdit = nil
+        guard snapshot != old else {
+            registerRestore(of: old, actionName: actionName)
+            return
+        }
+        commit(snapshot)
+        registerRestore(of: old, actionName: actionName)
+        notifyObservers(.restored, from: old)
+        clearSelectionIfGone()
+        if let pending = pendingEditorOccurrenceID, occurrence(id: pending) == nil {
+            pendingEditorOccurrenceID = nil
+        }
+    }
+
+    /// Registers Undo for the change just committed: `restore` puts `old` back.
+    private func registerUndo(restoring old: Library, action: LibraryUndoAction) {
+        lastSubjectEdit = nil
+        registerRestore(of: old, actionName: action.name)
+    }
+
+    /// Edits of the same subject less than two seconds apart, with no other change in between, share the
+    /// Undo step of the first one.
+    private func registerSubjectEditUndo(restoring old: Library, subjectID: UUID) {
+        let now = ContinuousClock.now
+        var continues = false
+        if let last = lastSubjectEdit {
+            continues = last.isContinued(by: subjectID, revision: libraryRevision, at: now, undoManager: undoManager)
+        }
+        if !continues {
+            registerUndo(restoring: old, action: .editSubjects)
+        }
+        guard let undoManager, undoManager.canUndo else {
+            lastSubjectEdit = nil
+            return
+        }
+        lastSubjectEdit = SubjectEditUndo(
+            subjectID: subjectID, revision: libraryRevision, time: now, undoManager: undoManager)
+    }
+
+    /// Registers a step that puts `snapshot` back. Never while the library can't be edited (loading,
+    /// read-only, moving), so a folder written by a newer Ithil never gets an Undo.
+    private func registerRestore(of snapshot: Library, actionName: String) {
+        guard canEdit, let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { model in
+            MainActor.assumeIsolated {
+                model.restore(snapshot, actionName: actionName)
+            }
+        }
+        undoManager.setActionName(actionName)
+    }
+
+    /// Forgets the selection when its occurrence no longer exists.
+    private func clearSelectionIfGone() {
+        if let selected = selectedOccurrenceID, occurrence(id: selected) == nil {
             selectedOccurrenceID = nil
         }
     }
@@ -754,6 +855,9 @@ final class AppModel {
         saveError = nil
         selectedOccurrenceID = nil
         pendingEditorOccurrenceID = nil
+        // Undo steps hold snapshots of the library that was open before (or of this one before a move).
+        undoManager?.removeAllActions(withTarget: self)
+        lastSubjectEdit = nil
         if readOnly {
             saveQueue = nil
         } else {
@@ -887,6 +991,56 @@ final class AppModel {
         model.libraryRevision += 1
         model.state = .ready
         return model
+    }
+}
+
+/// What Edit › Undo and Redo call a change to the library: "Undo Move Event".
+enum LibraryUndoAction {
+    case addEvent
+    case editEvent
+    case moveEvent
+    case deleteEvent
+    case editSubjects
+
+    var name: String {
+        switch self {
+        case .addEvent:
+            return String(localized: "Add Event")
+        case .editEvent:
+            return String(localized: "Edit Event")
+        case .moveEvent:
+            return String(localized: "Move Event")
+        case .deleteEvent:
+            return String(localized: "Delete Event")
+        case .editSubjects:
+            return String(localized: "Edit Subjects")
+        }
+    }
+}
+
+/// The last subject edit that registered Undo (see `AppModel.registerSubjectEditUndo`).
+private struct SubjectEditUndo {
+    var subjectID: UUID
+    /// `libraryRevision` right after the edit.
+    var revision: Int
+    var time: ContinuousClock.Instant
+    weak var undoManager: UndoManager?
+
+    /// Whether an edit of `subjectID` that brought the library to `revision` at `time` continues this one:
+    /// the same subject, nothing else changed in between, soon after, and this edit's Undo still on top.
+    @MainActor
+    func isContinued(
+        by subjectID: UUID,
+        revision: Int,
+        at time: ContinuousClock.Instant,
+        undoManager: UndoManager?
+    ) -> Bool {
+        guard subjectID == self.subjectID, revision == self.revision + 1, time - self.time < .seconds(2) else {
+            return false
+        }
+        guard let undoManager, undoManager === self.undoManager, undoManager.canUndo else { return false }
+        guard !undoManager.isUndoing, !undoManager.isRedoing else { return false }
+        return undoManager.undoActionName == LibraryUndoAction.editSubjects.name
     }
 }
 
