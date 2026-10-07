@@ -37,10 +37,13 @@ struct TimeGridView: View {
                 }
                 TimeGridDragPreviewView(state: dragState, columnWidth: columnWidth)
                 TimeGridNowIndicator(days: days, columnWidth: columnWidth)
-                TimeGridScrollAnchors(offset: scrollAnchorOffset)
             }
         }
         .frame(height: TimeGridGeometry.gridHeight)
+        .background(alignment: .topLeading) {
+            // Outside the GeometryReader: the scroll view's proxy doesn't find IDs inside one.
+            TimeGridScrollAnchors(offset: scrollAnchorOffset)
+        }
         .padding(.vertical, TimeGridGeometry.verticalInset)
         .modifier(TimeGridDragConfirmation(state: dragState))
         .onChange(of: days) {
@@ -112,7 +115,8 @@ private struct TimeGridHourGutter: View {
     }
 }
 
-/// Invisible scroll targets, one per hour, `offset` above each hour line (see `TimeGridView`).
+/// Invisible scroll targets, one per hour, `offset` above each hour line (see `TimeGridView`), placed by
+/// layout (padding) so the scroll view sees their frames. The early hours' targets stop at the top.
 private struct TimeGridScrollAnchors: View {
     let offset: CGFloat
 
@@ -122,9 +126,10 @@ private struct TimeGridScrollAnchors: View {
                 Color.clear
                     .frame(width: 1, height: 1)
                     .id(TimeGridHourID(hour: hour))
-                    .position(x: 0.5, y: TimeGridGeometry.y(forHour: hour) - offset + 0.5)
+                    .padding(.top, max(0, TimeGridGeometry.y(forHour: hour) - offset))
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
