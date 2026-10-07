@@ -45,10 +45,14 @@ jobs:
         run: |
           set -euo pipefail
           brew install displayplacer > /dev/null
-          screen=$(displayplacer list | awk '/^Persistent screen id:/ { print $4; exit }')
-          displayplacer "id:$screen res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0"
+          list=$(displayplacer list || true)
+          screen=$(awk '/^Persistent screen id:/ { print $4 }' <<< "$list" | head -n 1)
+          displayplacer "id:$screen res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0" \
+            || true
           sleep 2
-          system_profiler SPDisplaysDataType | grep -i resolution
+          resolution=$(system_profiler SPDisplaysDataType | grep -i resolution || true)
+          echo "$resolution"
+          [[ "$resolution" == *1920* ]]
           # Overlay scroll bars, as with a trackpad (the runner has no input devices, so it shows legacy ones).
           defaults write -g AppleShowScrollBars -string WhenScrolling
 
