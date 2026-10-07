@@ -112,12 +112,15 @@ private struct GridScrollView: View {
         scroll(proxy, toHour: hour)
     }
 
-    /// Scrolls now, and once more on the next turn of the run loop in case the first layout (a new set of
-    /// days, a taller all-day strip) wasn't done yet. Both use the same hour, worked out up front.
+    /// Scrolls now, on the next turn of the run loop, and once more a moment later: a scroll made before the
+    /// first layout is done (a new window, a new set of days, a taller all-day strip) is lost. All three use
+    /// the same hour, worked out up front.
     private func scroll(_ proxy: ScrollViewProxy, toHour hour: Int) {
         let target = TimeGridHourID(hour: hour)
         proxy.scrollTo(target, anchor: .top)
         Task { @MainActor in
+            proxy.scrollTo(target, anchor: .top)
+            try? await Task.sleep(for: .milliseconds(250))
             proxy.scrollTo(target, anchor: .top)
         }
     }

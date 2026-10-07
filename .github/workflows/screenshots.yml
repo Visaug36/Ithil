@@ -41,10 +41,16 @@ jobs:
             -destination 'platform=macOS' -derivedDataPath build/DerivedData -quiet
 
       - name: Display
-        continue-on-error: true
+        # The runner's screen is 1024x768, too small for a 1280x800 window.
         run: |
-          system_profiler SPDisplaysDataType
-          brew install displayplacer > /dev/null 2>&1 && displayplacer list
+          set -euo pipefail
+          brew install displayplacer > /dev/null
+          screen=$(displayplacer list | awk '/^Persistent screen id:/ { print $4; exit }')
+          displayplacer "id:$screen res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0"
+          sleep 2
+          system_profiler SPDisplaysDataType | grep -i resolution
+          # Overlay scroll bars, as with a trackpad (the runner has no input devices, so it shows legacy ones).
+          defaults write -g AppleShowScrollBars -string WhenScrolling
 
       - name: Capture
         run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images

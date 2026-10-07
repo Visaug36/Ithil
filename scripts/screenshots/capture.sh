@@ -1,6 +1,7 @@
 #!/bin/bash
 # Takes the README screenshots from the -demo build: each scene is a fresh launch with sample data in a
-# temporary folder (your own calendar is never touched), pinned to the design's "now".
+# temporary folder (your own calendar is never touched), pinned to the design's "now", in British English
+# like the design (24-hour times, weeks from Monday).
 #
 #   scripts/screenshots/capture.sh path/to/Ithil.app docs/images
 set -euo pipefail
@@ -35,7 +36,8 @@ shot() {
     pkill -x Ithil 2> /dev/null || true
     sleep 1
     open -n -F -a "$app" --stdout "$PWD/build/screenshot-logs/$name.log" --stderr "$PWD/build/screenshot-logs/$name.log" \
-        --args -demo -demoNow 2026-10-06T13:50 -demoWindowSize 1280x800 -ApplePersistenceIgnoreState YES "$@"
+        --args -demo -demoNow 2026-10-06T13:50 -demoWindowSize 1280x800 -ApplePersistenceIgnoreState YES \
+        -AppleLocale en_GB -AppleLanguages '(en)' "$@"
     local pid=""
     local bounds=""
     for attempt in $(seq 1 60); do
