@@ -1,8 +1,8 @@
 import IthilCore
 import SwiftUI
 
-/// General: appearance (Night, Dawn, Match System), the default alert for new events, and the first day
-/// of the week.
+/// General: appearance (Night, Dawn, Match System), the default alert for new events, the first day of
+/// the week, and whether macOS lets Ithil show notifications.
 struct GeneralSettingsView: View {
     @Environment(AppSettings.self) private var settings
 
@@ -20,11 +20,98 @@ struct GeneralSettingsView: View {
                     .font(Typography.eventTime)
                     .foregroundStyle(Color.textTertiary)
             }
+            NotificationSettingsSection()
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(Color.backgroundWindow)
-        .frame(height: 360)
+        .frame(height: 450)
+    }
+}
+
+/// "Notifications": what macOS allows, with the button that fits, and a footnote that explains (before
+/// asking) or says where to change it.
+private struct NotificationSettingsSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(NotificationsController.self) private var notifications
+    @State private var isRequesting = false
+
+    var body: some View {
+        Section {
+            LabeledContent("Notifications") {
+                HStack(spacing: 10) {
+                    status
+                        .foregroundStyle(Color.textSecondary)
+                    action
+                }
+            }
+            .task {
+                // The user may have changed it in System Settings since.
+                await notifications.refreshAuthorization()
+            }
+        } footer: {
+            footer
+                .font(Typography.eventTime)
+                .foregroundStyle(Color.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var status: Text {
+        if model.isDemo { return Text("Off in demo mode") }
+        switch notifications.authorization {
+        case .unknown: return Text("Checking…")
+        case .notDetermined: return Text("Not turned on")
+        case .denied: return Text("Off")
+        case .authorized: return Text("On")
+        }
+    }
+
+    @ViewBuilder private var action: some View {
+        if !model.isDemo {
+            switch notifications.authorization {
+            case .notDetermined:
+                Button("Turn On…") {
+                    requestPermission()
+                }
+                .disabled(isRequesting)
+                .accessibilityHint(Text("Asks macOS to let Ithil show alerts"))
+            case .denied:
+                Button("Open System Settings") {
+                    notifications.openSystemSettings()
+                }
+            case .authorized:
+                Button("Notification Settings…") {
+                    notifications.openSystemSettings()
+                }
+                .accessibilityHint(Text("Opens Ithil in System Settings → Notifications"))
+            case .unknown:
+                EmptyView()
+            }
+        }
+    }
+
+    private var footer: Text {
+        if model.isDemo {
+            return Text("Demo mode never schedules notifications, so your real alerts stay as they are.")
+        }
+        switch notifications.authorization {
+        case .notDetermined, .unknown:
+            return Text(NotificationPermissionView.explanation)
+        case .denied:
+            return Text("Turn them on in System Settings → Notifications → Ithil.")
+        case .authorized:
+            return Text("Alerts arrive even when Ithil is closed. Their style and sound are set in System Settings.")
+        }
+    }
+
+    private func requestPermission() {
+        guard !isRequesting else { return }
+        isRequesting = true
+        Task {
+            await notifications.requestAuthorization()
+            isRequesting = false
+        }
     }
 }
 

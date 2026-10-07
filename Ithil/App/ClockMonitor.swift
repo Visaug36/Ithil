@@ -8,6 +8,9 @@ import Foundation
 /// - A time zone or locale change, and waking from sleep, rebuild the calendar math too.
 ///
 /// With a pinned clock (`-demoNow`) the model's time source never moves, so neither does `now`.
+///
+/// `NotificationsController` follows the same system events itself (re-plan at midnight, on wake and when
+/// the clock changes; start over after a time zone change), so this type stays about the model only.
 @MainActor
 final class ClockMonitor {
     private weak var model: AppModel?

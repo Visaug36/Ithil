@@ -12,7 +12,7 @@ Rules that apply everywhere:
 
 - **The main thread never waits on disk.** Storage and file work run on actors or background tasks; the app
   model updates its in-memory state first and saves asynchronously.
-- **Time, file system and notifications sit behind protocols** (`TimeSource`, `FileSystem`, later
+- **Time, file system and notifications sit behind protocols** (`TimeSource`, `FileSystem`,
   `NotificationScheduling`) so tests can fake them.
 - **All date math goes through `Calendar` / `DateComponents`** with an explicit time zone. Never add
   `86_400` seconds to get "tomorrow".
@@ -332,10 +332,118 @@ temporary folder; `-demoNow 2026-10-06T13:50` additionally pins the clock for sc
 (`4954484C-DE30-4000-8000-00000000GGNN`: group 00 library, 01 subjects, 02 events), so equal arguments give
 equal libraries. Weekly classes repeat forever; timed events have a 10-minute alert.
 
+## Notifications (`IthilCore/Notifications`)
+
+```swift
+public struct PlannedAlert: Hashable, Sendable {
+    public var identifier: String          // the notification request's identifier
+    public var occurrence: Occurrence
+    public var fireDate: Date
+    public var minutesBefore: Int
+}
+
+public struct AlertPlanner: Sendable {
+    public static let identifierPrefix = "ithil.alert."
+    public init(displayTimeZone: TimeZone, allDayAlertHour: Int = 9, maximumCount: Int = 48, horizonDays: Int = 14)
+    public func plan(_ library: Library, now: Date) -> [PlannedAlert]     // nearest first, fireDate > now
+    public func identifier(for occurrence: Occurrence, minutesBefore: Int) -> String
+    public static func parse(identifier: String) -> (eventID: UUID, date: CalendarDate)?
+}
+
+public protocol NotificationScheduling: Sendable {
+    func pendingAlertIdentifiers() async -> Set<String>    // only identifiers with identifierPrefix
+    func schedule(_ alerts: [PlannedAlert]) async throws   // same identifier replaces the pending one
+    func cancel(identifiers: Set<String>) async
+}
+
+public struct AlertSyncResult: Hashable, Sendable { public var added: [String]; public var removed: [String] }
+public actor AlertSynchronizer {
+    public init(scheduler: any NotificationScheduling, planner: AlertPlanner)
+    public func sync(library: Library, now: Date) async throws -> AlertSyncResult   // touches only the difference
+    public func cancelAll() async
+}
+```
+
+- **Only the nearest alerts are pending** (14 days, at most 48; macOS keeps 64 per app), so they fire while
+  Ithil is quit. The app re-plans often enough (see Notifications (app)) that the window always moves on.
+- **Timed events** fire `minutesBefore` minutes of elapsed time before the start. **All-day events** fire
+  relative to 09:00 on their first day in the display time zone, in wall-clock time.
+- **Identifiers** are `ithil.alert.<event UUID>.<yyyy-MM-dd>.<minutes>.<hash>`; the hash covers title,
+  location, start, end, all-day and the offset, so any change to what the alert says gives a new identifier
+  and `AlertSynchronizer` replaces it. The display time zone isn't part of it: after a time zone change the
+  app makes a new synchronizer and calls `cancelAll()` first.
+- Calls to one synchronizer are serialized in arrival order, so the latest library always wins.
+
+## Files (`IthilCore/Files`)
+
+```
+<root>/2026-10-06/14.00 Physics Lecture/                 timed: day and HH.mm in the event's own time zone
+<root>/2026-10-06/14.00 Physics Lecture/.ithil-event     EventFolderMarker {eventID, date, version}
+<root>/2026-10-14/Mara's birthday/                       all-day: first day, title only
+```
+
+```swift
+public enum FolderNaming {
+    public static let maximumTitleLength = 80              // Characters (fewer for very wide ones: ≤ 240 bytes)
+    public static let fallbackTitle = "Event"
+    public static func sanitizedTitle(_ title: String) -> String   // no / or :, no leading dots, trimmed, cut
+    public static func dayFolderName(for occurrence: Occurrence) -> String     // "2026-10-06"
+    public static func eventFolderName(for occurrence: Occurrence) -> String   // "14.00 Physics Lecture"
+    public static func relativePath(for occurrence: Occurrence) -> String      // "2026-10-06/14.00 Physics Lecture"
+}
+
+public struct EventFolderMarker: Codable, Hashable, Sendable { public static let fileName = ".ithil-event" … }
+public struct EventFile: Hashable, Sendable, Identifiable {
+    public var url: URL; public var name: String; public var byteCount: Int64
+    public var modified: Date?; public var isDirectory: Bool
+}
+public enum EventFoldersError: Error { case outsideRoot(String), notADirectory(String) }
+
+public actor EventFolders {
+    public nonisolated let root: URL
+    public init(root: URL, fileSystem: any FileSystem)
+    public func existingFolder(for occurrence: Occurrence) -> URL?      // never creates one
+    public func ensureFolder(for occurrence: Occurrence) throws -> URL  // only when the first file arrives
+    public func files(for occurrence: Occurrence) -> [EventFile]        // visible items, Finder order
+    public func fileCount(for occurrence: Occurrence) -> Int
+    @discardableResult public func relocate(from old: Occurrence, to new: Occurrence) throws -> URL?
+    public func trashFolder(for occurrence: Occurrence) throws          // Trash, never a permanent delete
+    public func reindex()                                               // rescan every marker
+    public func markedFolders() -> [Occurrence.ID: URL]                 // after a full rescan
+    public nonisolated func contains(_ url: URL) -> Bool                // inside root, links resolved
+}
+
+public struct FileCopyProgress: Hashable, Sendable {
+    public var completedBytes: Int64; public var totalBytes: Int64
+    public var completedFiles: Int; public var totalFiles: Int; public var currentName: String?
+    public var fractionCompleted: Double { get }
+}
+public enum FileImport {
+    public static func availableName(for name: String, in folder: URL, fileSystem: any FileSystem) -> String
+    public static func copy(_ sources: [URL], into folder: URL, root: URL, fileSystem: any FileSystem,
+                            progress: @escaping @Sendable (FileCopyProgress) -> Void) async throws -> [URL]
+}
+public enum LibraryMove {
+    public static func move(from oldRoot: URL, to newRoot: URL, fileSystem: any FileSystem) throws
+}
+```
+
+- **The folder is the source of truth.** Folders are created only by `ensureFolder` (when the first file
+  arrives); every lookup finds folders by their expected path first, then by marker, so a folder renamed or
+  moved to another day folder in Finder is still found. A folder the user made at the expected path is
+  adopted by writing a marker.
+- **Copy, never move:** `FileImport.copy` copies each item under a hidden temporary name and renames it into
+  place when complete; clashes get " 2", " 3"… like Finder. Cancelling leaves the finished items.
+- **Nothing outside the root:** every create, write, move and trash checks `contains(_:)` (symbolic links
+  resolved). **Nothing deleted:** folders and files go to the Trash; only completely empty day folders are
+  removed (`rmdir`).
+- `LibraryMove` moves `.ithil` and the day folders (renames on one volume, copy then move across volumes),
+  `.ithil` last, and moves everything back if one item fails.
+
 ## App layer (`Ithil/`)
 
-Phase 2 files and their owners. Shared types are declared once, by the owner listed; everyone else uses
-them exactly as specified here.
+Files and their owners (Phase 2, then Phases 3 and 4). Shared types are declared once, by the owner listed;
+everyone else uses them exactly as specified here.
 
 ```
 Ithil/
@@ -364,6 +472,11 @@ Ithil/
   Views/Details/*.swift          event details popover                                (editor)
   Views/QuickAdd/*.swift         Quick Add NSPanel + view                             (editor)
   Views/Settings/*.swift         Settings window: General, Subjects, Files            (editor)
+  App/LibraryChangeObserver.swift  LibraryChange + observer protocol (AppModel → controllers)   (shell)
+  App/Files/*.swift              FilesController, RootFolderWatcher, DemoFiles, folder carry plan (files-app)
+  App/Notifications/*.swift      NotificationsController, scheduler, delegate, alert text      (notify)
+  Views/Files/*.swift            file list, drop targets, editor drop zone, Add Files panel     (files-ui)
+  Views/Notifications/*.swift    the explain-then-ask permission card                           (notify)
 ```
 
 `Subject` also names a Combine protocol that SwiftUI makes visible, so the app declares
@@ -433,7 +546,9 @@ var pendingEditorOccurrenceID: Occurrence.ID?       // set by Quick Add ⌘↩: 
 // Beyond the original contract (shell); other areas rely on these:
 init(options: LaunchOptions, settings: AppSettings, defaults: UserDefaults)
 func start()                                        // once, from App.init: clock, then demo / saved folder / .needsFolder
-var canEdit: Bool { get }                           // state == .ready && !isReadOnly; editors and Files guard on it
+var canEdit: Bool { get }                           // .ready, not read-only, not moving; editors and Files guard on it
+var isMovingLibrary: Bool                           // set by FilesController.moveLibrary: no edits until it reopens
+func addChangeObserver(_ observer: any LibraryChangeObserver)   // held weakly; see "Library change observers"
 private(set) var libraryRevision: Int               // bumped on every change to `library`
 var folderError: String?                            // chosen folder unusable; UI shows an alert, then sets nil
 var showsRecoveryNotice: Bool, showsSaveError: Bool, showsFolderError: Bool   // alert bindings
@@ -452,7 +567,8 @@ static var preview: AppModel { get }                // demo library in memory, f
   and change nothing.
 - A folder written by a newer Ithil opens read-only (`isReadOnly`, banner, no save queue). A failed save keeps the
   calendar open and shows an alert with "Try Again".
-- `update` / `delete` only change the library; the Files phase adds folder renames and trashing.
+- `update` / `delete` only change the library; `FilesController` hears about them as a `LibraryChange` and
+  renames, moves or trashes the event folders.
 
 Every mutation updates `library` immediately (the UI never waits) and hands a snapshot to
 `LibrarySaveQueue`, which saves on the `LibraryStore` actor. A newer snapshot replaces any pending one.
@@ -552,3 +668,128 @@ struct EmptyStateView: View                          // existing
 - Every user-facing string is a `LocalizedStringKey` / `String(localized:)` literal so it lands in
   `Localizable.xcstrings`.
 - VoiceOver: every interactive element has a label; event blocks use `EventFormatting.accessibilityLabel`.
+
+### Library change observers (`App/LibraryChangeObserver.swift`)
+
+```swift
+enum LibraryChange {
+    case opened(root: URL)                                   // never change the disk in response
+    case added(Event)
+    case updated(Occurrence, edited: Event, scope: SeriesEditing.Scope)
+    case deleted(Occurrence, scope: SeriesEditing.Scope)     // the UI asked first
+    case subjectsChanged
+}
+@MainActor protocol LibraryChangeObserver: AnyObject {
+    func libraryDidChange(_ change: LibraryChange, from old: Library, to new: Library)
+}
+```
+
+`AppModel` holds observers weakly and calls them on the main actor right after `library` changed, in the order
+they registered. `FilesController` registers first, then `NotificationsController`.
+
+### Files (app) (`App/Files`, `Views/Files`)
+
+```swift
+@Observable @MainActor final class FilesController: LibraryChangeObserver {   // .environment(files)
+    init(model: AppModel)                         // registers as observer; follows an already open library
+    private(set) var root: URL?
+    private(set) var fileCounts: [Occurrence.ID: Int]          // missing = not loaded yet (show nothing)
+    private(set) var changeToken: Int                          // bumped when files may have changed
+    private(set) var imports: [Occurrence.ID: FileCopyProgress]
+    private(set) var isMovingLibrary: Bool
+    var lastError: String?                                     // MainView shows it as an alert
+    var showsLastError: Bool                                   // alert binding
+    func requestCounts(for occurrences: [Occurrence])          // batched (50 ms, 500 a turn), off the main thread
+    func fileCount(for occurrence: Occurrence) -> Int?         // asks for unknown counts itself
+    func files(for occurrence: Occurrence) async -> [EventFile]
+    func addFiles(_ urls: [URL], to occurrence: Occurrence)    // copies; queued after a running copy into it
+    func cancelImport(for occurrence: Occurrence)
+    func folderURL(for occurrence: Occurrence) async -> URL?
+    func revealInFinder(_ occurrence: Occurrence)              // opens the event folder, else day folder, else root
+    func reveal(_ file: EventFile)
+    func open(_ file: EventFile)
+    func moveToTrash(_ file: EventFile)
+    func displayPath(for occurrence: Occurrence) -> String     // "Ithil › 2026-10-06 › 14.00 Physics Lecture"
+    func folderName(for occurrence: Occurrence) -> String      // "14.00 Physics Lecture"
+    func makeFileCountProvider() -> @Sendable (Occurrence) async -> Int
+    func moveLibrary(to destination: URL) async throws         // the chosen folder (LibraryFolderChoice picks the root)
+    func openLibrary(at folder: URL)
+    static var preview: FilesController { get }                // demo files in memory, no disk
+}
+```
+
+- **Following the library:** `.opened` starts a session (new `EventFolders`, marker index, `RootFolderWatcher`,
+  counts cleared; in `-demo` the sample files from `DemoFiles`, the only disk write on `.opened`). `.updated`
+  carries the edited event's folders along (`FolderCarryPlan`: same event on the same date, a detached
+  occurrence, or the moved series after an "all future" split); folders with no new home stay put.
+  `.deleted` trashes only the deleted occurrences' folders. `.added` / `.subjectsChanged` touch nothing.
+- **Disk work runs one at a time** (copies, renames, the Trash, a library move) in the order it was asked
+  for; work for an earlier library is dropped when another opens.
+- **FSEvents** (`RootFolderWatcher`, file-level, 0.3 s, main queue): `FolderChangeFilter` sorts paths into
+  structural changes (reindex), content changes (refresh counts) and noise (`.ithil` saves, `.DS_Store`,
+  copies in progress). Every refresh bumps `changeToken`; file lists reload on it.
+- **Moving the library** (Settings → Files): waits for pending saves, refuses while copies run, sets
+  `AppModel.isMovingLibrary` (so `canEdit` is false and no save lands in a moving folder), moves with
+  `LibraryMove`, then `model.useFolder(newRoot)` and waits for it to open. Changes that still arrive during the
+  move are replayed afterwards.
+- **Views:** `EventBlockView` (paperclip + count, drop target, 2 pt progress bar, ", 4 files" for VoiceOver),
+  `EventDetailsView` → `EventFilesSection` / `EventFileList` (Space Quick Look, Return / double-click open,
+  Delete asks, context menu), `EventEditorView` → `EditorFilesSection` (a new event keeps dropped files until
+  it is added), `FilesSettingsView` (Show in Finder, Change…). Shared pieces: `View.fileDropTarget`,
+  `FileDragState`, `FileDropGlow`, `FileDropPrompt`, `FileImportProgressRow`, `AddFilesPanel`, `FileLabels`,
+  `FileIcons` (from the type only, so drawing never reads the disk). Deleting an event with files says
+  so and its button is "Move to Trash" (`EventChangeContext.fileCount`).
+
+### Notifications (app) (`App/Notifications`, `Views/Notifications`)
+
+```swift
+@Observable @MainActor final class NotificationsController: LibraryChangeObserver {   // .environment(notifications)
+    enum Authorization: Equatable { case unknown, notDetermined, denied, authorized }
+    init(model: AppModel, files: FilesController)   // observer; attaches to NotificationDelegate; live: categories
+    private(set) var authorization: Authorization    // .unknown until read, and always in -demo
+    var isPromptDismissed: Bool                      // "Not Now" (UserDefaults; memory only in -demo)
+    var hasUpcomingAlerts: Bool { get }              // any planned alert in 14 days (cached per revision/minute)
+    @ObservationIgnored var openMainWindow: (() -> Void)?   // set by MainView: openWindow(id: "main")
+    func refreshAuthorization() async
+    func requestAuthorization() async                // only from a button the user pressed
+    func openSystemSettings()
+    func scheduleSync()                              // debounced 1 s
+    func timeZoneDidChange()                         // new pipeline, cancelAll, then sync
+    func handleResponse(identifier: String, actionIdentifier: String)
+    static var preview: NotificationsController { get }
+}
+struct UserNotificationScheduler: NotificationScheduling   // UNUserNotificationCenter; calendar triggers
+final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate { static let shared; static func install() }
+enum AlertText                                       // "Physics Lecture in 10 min" / "14:00 – 15:30 · Room B204 · 4 files"
+struct NotificationPermissionView: View              // explain-then-ask card: sidebar, Settings, onboarding
+```
+
+- **When it syncs:** about a second after the library opens or changes, after files change (`changeToken`,
+  for "N files" and the Open Files action), on wake, at midnight (`NSCalendarDayChanged`), when the clock,
+  region settings or display time zone change, when permission becomes authorized, and every hour. A system
+  time zone change (`NSSystemTimeZoneDidChange`) calls `timeZoneDidChange()`. Syncs never overlap.
+- **Requests:** one `UNCalendarNotificationTrigger` per alert (Gregorian, era to second, with the planning
+  zone), sound, thread = event ID, category `EVENT_FILES` (with "Open Files", `.foreground`) when the event has
+  files, else `EVENT`. Pending alerts whose text is out of date are rewritten under the same identifier.
+- **Clicks:** `NotificationDelegate` is the center's delegate from `applicationWillFinishLaunching`; its
+  `nonisolated` methods copy the strings out and hop to the main actor. "Open Files" → `files.revealInFinder`;
+  a plain click activates Ithil, shows the day, selects the occurrence and brings the main window forward
+  (or `openMainWindow`). A click that launched Ithil waits until the library is `.ready`.
+- **Permission:** read at launch and whenever Ithil becomes active. The sidebar card shows while an alert is
+  coming up in the next 14 days and permission is not determined (until "Not Now") or denied. Settings →
+  General has a Notifications row.
+- **`-demo`** never reads permission or schedules anything (it would replace the user's real alerts).
+
+### App wiring (integration)
+
+- `IthilApp.init`: `AppSettings` → `AppModel` → `FilesController(model:)` → `NotificationsController(model:files:)`
+  → `model.start()`, so both observers are registered before any library opens (and `FilesController` also
+  follows a library that is already open). All four are `@State` on the app and injected with `.environment`
+  into the main `WindowGroup(id: "main")` and the `Settings` scene. Previews use the `.preview` instances.
+- `AppDelegate.applicationWillFinishLaunching` calls `NotificationDelegate.install()`; the controller attaches
+  itself and observes `didBecomeActive` for the permission, so the delegate needs nothing else.
+- Clock events: `ClockMonitor` keeps `AppModel` current; `NotificationsController` observes the same system
+  notifications itself (day change, clock, time zone, locale, wake) instead of a callback from the model,
+  so neither the model nor the monitor knows about notifications.
+- `MainView` shows `files.lastError` ("There was a problem with your files") next to the model's alerts and
+  sets `notifications.openMainWindow`.
