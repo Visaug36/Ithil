@@ -99,13 +99,15 @@ private struct GridScrollView: View {
     }
 
     /// An hour before the event whose editor Quick Add's ⌘↩ is about to open, so its popover points at a
-    /// block on screen; otherwise an hour before now when today is on screen, otherwise 08:00.
+    /// block on screen. Otherwise 08:00, the start of a student's day, unless today is on screen and now is
+    /// earlier (then an hour before now) or late in the evening (then six hours before now).
     private func scrollToStart(_ proxy: ScrollViewProxy) {
         var hour = 8
         if let revealed = revealHour(for: model.pendingEditorOccurrenceID) {
             hour = revealed
         } else if days.contains(model.today) {
-            hour = max(0, model.math.minutesOfDay(model.now) / 60 - 1)
+            let nowHour = model.math.minutesOfDay(model.now) / 60
+            hour = nowHour < 16 ? max(0, min(8, nowHour - 1)) : nowHour - 6
         }
         scroll(proxy, toHour: hour)
     }

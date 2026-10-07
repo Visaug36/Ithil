@@ -17,6 +17,8 @@ struct IthilApp: App {
     @State private var model: AppModel
     @State private var files: FilesController
     @State private var notifications: NotificationsController
+    /// Only for `-demo` screenshot scenes.
+    @State private var demoDirector: DemoSceneDirector?
 
     init() {
         let options = LaunchOptions.current
@@ -25,11 +27,16 @@ struct IthilApp: App {
         let model = AppModel(options: options, settings: settings, defaults: defaults)
         let files = FilesController(model: model)
         let notifications = NotificationsController(model: model, files: files)
+        var demoDirector: DemoSceneDirector?
+        if options.isDemo, !options.demoScene.isEmpty {
+            demoDirector = DemoSceneDirector(scene: options.demoScene, model: model, settings: settings)
+        }
         model.start()
         _settings = State(initialValue: settings)
         _model = State(initialValue: model)
         _files = State(initialValue: files)
         _notifications = State(initialValue: notifications)
+        _demoDirector = State(initialValue: demoDirector)
         // Before the first window draws, where possible; `connect()` makes sure of it. The global shortcut
         // is registered once the app's run loop is going.
         Task { @MainActor in

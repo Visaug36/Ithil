@@ -71,6 +71,8 @@ final class AppModel {
     var searchText = ""
     /// Set by Quick Add ⌘↩: the calendar opens this occurrence's editor, then sets nil.
     var pendingEditorOccurrenceID: Occurrence.ID? = nil
+    /// Set by a `-demo` screenshot scene: the calendar opens this occurrence's details.
+    var pendingDetailsOccurrenceID: Occurrence.ID? = nil
     var visibleDays: [CalendarDate] { math.visibleDays(for: span, around: selectedDate) }
 
     // MARK: - Undo

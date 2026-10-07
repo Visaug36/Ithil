@@ -31,7 +31,9 @@ final class QuickAddPanelController {
         }
     }
 
-    func show(model: AppModel, settings: AppSettings) {
+    /// Shows the panel, centered in the upper third of the active screen. `text` pre-fills the field
+    /// (used by `-demo` screenshot scenes).
+    func show(model: AppModel, settings: AppSettings, text: String = "") {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         let app = NSApplication.shared
@@ -46,6 +48,7 @@ final class QuickAddPanelController {
             onReveal: { [weak self] in
                 self?.revealMainWindow()
             })
+        session.text = text
         self.session = session
         panel.onCommandReturn = { [weak session] in
             session?.submit(openingEditor: true)
