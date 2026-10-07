@@ -88,10 +88,25 @@ Keep this section current. Newest first.
 - **Assets:** the app icon (option 1a) was rasterized from the design PDF at 600 dpi and masked onto Apple's 824/1024 grid. The illustrations were redrawn as plain SVG (no masks or filters). The star field is a generated, seeded 512 pt tile.
 - **CI:** GitHub Actions on `macos-26` with the newest stable Xcode 26.x on the runner (26.6 as of 2026-10-06; the user doesn't know their own versions, so this is the pin). Runs swift-format lint (strict), Debug tests, and a universal Release build (checked with `lipo`). It fails on any warning (`scripts/check-warnings.sh` + `SWIFT_TREAT_WARNINGS_AS_ERRORS`).
 - **Environment:** Claude works in a Linux cloud container without Xcode, so GitHub Actions is the build-and-test loop. `gh` isn't authenticated there; GitHub is reached through git and the GitHub connector.
+- **How work is done:** the API contract for each module goes in `docs/ARCHITECTURE.md` first. Then parallel engineers implement against it, independent reviewers fix in place, an integration pass follows, and CI on the pushed branch is the compiler. Prefer reading CI failures from the xcresult summary (the "Show test failures" step) and swift-format's printed patch.
+- **Product rules decided along the way:**
+  - Monthly repeats skip months without that day (like Calendar.app and RFC 5545).
+  - All-day alerts are relative to 09:00 local.
+  - All-day event folders have no time prefix (`2026-10-14/Mara's birthday`). Timed folders use HH.mm in the event's own time zone.
+  - Quick Add with no date means today, all day; "due friday" keeps "due" in the title.
+  - Deleting a series' future events moves only those occurrences' folders to the Trash.
+  - Edits carry folders along and never trash them.
+- **Strings:** `xcodebuild` does not sync the String Catalog, so `Localizable.xcstrings` is kept up to date by hand or script. A CI check with `xcstringstool` is planned for Phase 5.
+- **Dependabot PRs** for Actions are taken over on the working branch (checkout/upload-artifact are already on v7).
+- **Demo mode** never schedules real notifications and never touches the real bookmark or settings. `-demoNow` only works together with `-demo`.
 
 ### Open items
 - Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file): Phase 5 or 6.
 - Increase Contrast color variants: Phase 5.
 
 ### Status
-- 2026-10-06: **Phase 1 done, CI green** (lint, 2 tests, universal Release build, zero warnings). Waiting for the user to test on their Mac before Phase 2.
+- 2026-10-07: Phase 3/4 app layer (notifications wiring and UI, file controller, files UI) is being built. A usage limit interrupted the first run; it was resumed.
+- 2026-10-06:
+  - Phase 2 merged (https://github.com/Visaug36/Ithil/pull/4), together with the Phase 3 and 4 IthilCore logic: 312 tests, zero warnings, universal build.
+  - Release workflow, `scripts/install.sh`, community files, issue and PR templates, `docs/RELEASE_CHECKLIST.md` and `docs/social-preview.png` were added on the branch.
+- 2026-10-06: Phase 1 merged (https://github.com/Visaug36/Ithil/pull/1).
