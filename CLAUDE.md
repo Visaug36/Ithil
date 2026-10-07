@@ -101,10 +101,15 @@ Keep this section current. Newest first.
 - **Demo mode** never schedules real notifications and never touches the real bookmark or settings. `-demoNow` only works together with `-demo`.
 
 ### Open items
-- Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file): Phase 5 or 6.
-- Increase Contrast color variants: Phase 5.
+- Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file). The legacy AppIcon set still works.
+- Needs a check on a real Mac (CI can't drive the UI):
+  - Can the sandboxed app move a folder back out of `~/.Trash` when a delete is undone? If not, it shows an error and the folder stays in the Trash.
+  - Do click, double-click and drop still work together with drag-to-move and the resize handle?
+  - Do the Increase Contrast colors apply when Night or Dawn is forced?
+  - Does ⌘F reach Ithil's Find… item?
 
 ### Status
+- 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
 - 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).
 - 2026-10-06:
   - Phase 2 merged (https://github.com/Visaug36/Ithil/pull/4), together with the Phase 3 and 4 IthilCore logic: 312 tests, zero warnings, universal build.
