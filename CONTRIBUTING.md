@@ -56,7 +56,8 @@ the look. In short:
 - **Zero warnings.** CI builds with warnings as errors.
 - **Format with swift-format** (it ships with Xcode): `xcrun swift-format format --in-place --recursive Ithil IthilCore IthilCoreTests`.
   CI runs `swift-format lint --strict`.
-- **Every user-facing string is localizable** and lives in `Ithil/Localizable.xcstrings`.
+- **Every user-facing string is localizable** and lives in `Ithil/Localizable.xcstrings`. Building in Xcode adds
+  new strings to it; CI fails if code uses a string the catalog doesn't have (`scripts/check-strings.sh`).
 - **Accessibility:** VoiceOver labels on every control, full keyboard access, respect Reduce Motion and Increase
   Contrast, and keep text at WCAG AA contrast in both Night and Dawn.
 - **Tests:** logic changes in `IthilCore` come with Swift Testing tests. Tests must not depend on the machine's
@@ -69,6 +70,8 @@ the look. In short:
 2. Keep each pull request to one change, with a clear description and screenshots for anything visible
    (Night and Dawn).
 3. Make sure `xcodebuild test` passes and swift-format is clean. CI checks both, plus a universal Release build.
+   If you change how Ithil looks, the README screenshots can be retaken (see
+   [scripts/screenshots](scripts/screenshots/README.md)).
 4. Add a line to the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md).
 
 ## License
