@@ -38,12 +38,18 @@ shot() {
         --args -demo -demoNow 2026-10-06T13:50 -demoWindowSize 1280x800 -ApplePersistenceIgnoreState YES "$@"
     local pid=""
     local bounds=""
-    for _ in $(seq 1 60); do
+    for attempt in $(seq 1 60); do
         sleep 0.5
         pid=$(pgrep -n -x Ithil || true)
         [[ -n "$pid" ]] || continue
         bounds=$(build/window-bounds "$pid" 2> /dev/null || true)
         [[ -n "$bounds" ]] && break
+        if [[ $attempt -eq 20 ]]; then
+            # On the CI runner SwiftUI sometimes doesn't open the main window at launch. Reopening the app
+            # (what clicking its Dock icon does) makes it open one.
+            echo "$name: no window after 10 s, reopening"
+            open -a "$app"
+        fi
     done
     if [[ -z "$bounds" ]]; then
         echo "::error::No window for $name (pid ${pid:-none})"

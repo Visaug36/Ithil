@@ -60,6 +60,9 @@ jobs:
           echo "Files changed by the build (e.g. String Catalog sync):"
           git status --porcelain
 
+      - name: Check the String Catalog
+        run: scripts/check-strings.sh build/DerivedData
+
       - name: Show test failures
         if: failure()
         run: |

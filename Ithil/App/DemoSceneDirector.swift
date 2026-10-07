@@ -32,13 +32,13 @@ final class DemoSceneDirector: LibraryChangeObserver {
         didRun = true
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(600))
-            self?.run()
+            await self?.run()
         }
     }
 
-    private func run() {
+    private func run() async {
         guard let model else { return }
-        resizeMainWindow()
+        await resizeMainWindow()
         let lecture = model.occurrences(on: model.today).first { $0.event.title == "Physics Lecture" }
         model.selectedOccurrenceID = lecture?.id
         switch scene.overlay {
@@ -51,11 +51,16 @@ final class DemoSceneDirector: LibraryChangeObserver {
         }
     }
 
-    private func resizeMainWindow() {
-        guard let size = scene.windowSize,
-            let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && !($0 is NSPanel) })
-        else { return }
-        window.setContentSize(size)
-        window.center()
+    /// Waits up to 20 seconds for the main window (on a CI runner it can open late), then sizes and centers it.
+    private func resizeMainWindow() async {
+        guard let size = scene.windowSize else { return }
+        for _ in 0..<80 {
+            if let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && !($0 is NSPanel) }) {
+                window.setContentSize(size)
+                window.center()
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
     }
 }

@@ -40,6 +40,12 @@ jobs:
           xcodebuild build -project Ithil.xcodeproj -scheme Ithil -configuration Release \
             -destination 'platform=macOS' -derivedDataPath build/DerivedData -quiet
 
+      - name: Display
+        continue-on-error: true
+        run: |
+          system_profiler SPDisplaysDataType
+          brew install displayplacer > /dev/null 2>&1 && displayplacer list
+
       - name: Capture
         run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
 
