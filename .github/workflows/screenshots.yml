@@ -44,10 +44,14 @@ jobs:
         run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
 
       - name: Upload
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: screenshots
-          path: docs/images/*.png
+          path: |
+            docs/images/*.png
+            build/screenshot-logs
+          if-no-files-found: ignore
 
       - name: Commit screenshots
         run: |

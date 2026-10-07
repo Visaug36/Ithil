@@ -3,13 +3,26 @@
 import CoreGraphics
 import Foundation
 
-guard CommandLine.arguments.count == 2, let pid = Int32(CommandLine.arguments[1]) else {
-    FileHandle.standardError.write(Data("usage: window-bounds <pid>\n".utf8))
-    exit(2)
-}
-
 let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
 let windows = (CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]]) ?? []
+
+// `window-bounds --list` prints every on-screen window, for debugging a failed capture.
+if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--list" {
+    for window in windows {
+        let owner = window[kCGWindowOwnerName as String] as? String ?? "?"
+        let pid = window[kCGWindowOwnerPID as String] as? Int32 ?? -1
+        let layer = window[kCGWindowLayer as String] as? Int ?? -1
+        let rect = (window[kCGWindowBounds as String] as? NSDictionary)
+            .flatMap { CGRect(dictionaryRepresentation: $0 as CFDictionary) } ?? .zero
+        print("\(owner) pid=\(pid) layer=\(layer) \(rect)")
+    }
+    exit(0)
+}
+
+guard CommandLine.arguments.count == 2, let pid = Int32(CommandLine.arguments[1]) else {
+    FileHandle.standardError.write(Data("usage: window-bounds <pid> | --list\n".utf8))
+    exit(2)
+}
 
 func bounds(of window: [String: Any]) -> CGRect? {
     guard let dictionary = window[kCGWindowBounds as String] as? NSDictionary else { return nil }
