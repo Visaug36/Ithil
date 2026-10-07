@@ -2,20 +2,31 @@ import IthilCore
 import SwiftUI
 
 /// The event details popover: subject, title in New York 22 pt, day and time, then location, alert and
-/// repeat rows (only those that apply), the notes, and Delete / Edit.
+/// repeat rows (only those that apply), the notes, the event's files, and Delete / Edit.
 ///
 /// It shows the occurrence as it is in the library now, so edits made elsewhere appear at once. Delete
-/// asks first (and which occurrences, for a repeating event), then calls `onClose`; Edit calls `onEdit`.
+/// asks first (and which occurrences, for a repeating event, and what happens to its files), then calls
+/// `onClose`; Edit calls `onEdit`.
+///
+/// Files dragged anywhere over the popover are copied into the event's folder; while they are over it, the
+/// popover gets the amber drop ring and glow (DESIGN.md screen 6).
 struct EventDetailsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(FilesController.self) private var files
     let occurrence: Occurrence
     let onEdit: () -> Void
     let onClose: () -> Void
     @State private var showsDeleteConfirmation = false
+    @State private var drag = FileDragState()
+    /// How many files the folder had when the Files section last read it.
+    @State private var loadedFileCount: Int? = nil
+    /// The file list has keyboard focus, so Return opens a file instead of pressing Edit.
+    @State private var isFileListFocused = false
 
     var body: some View {
         let current = model.occurrence(id: occurrence.id) ?? occurrence
-        let context = EventChangeContext(occurrence: current, timeZone: model.timeZone)
+        let context = EventChangeContext(
+            occurrence: current, timeZone: model.timeZone, fileCount: fileCount(of: current))
         VStack(alignment: .leading, spacing: 14) {
             EventDetailsHeader(occurrence: current)
             EventDetailsInfo(event: current.event)
@@ -30,15 +41,27 @@ struct EventDetailsView: View {
                     .accessibilityLabel(Text("Notes"))
                     .accessibilityValue(Text(current.event.notes))
             }
-            Rectangle()
-                .fill(Color.separatorLine)
-                .frame(height: 1)
-                .accessibilityHidden(true)
+            EventDetailsSeparator()
+            EventFilesSection(
+                occurrence: current, drag: drag, isListFocused: $isFileListFocused, loadedCount: $loadedFileCount)
+            EventDetailsSeparator()
             footer
         }
         .padding(Metrics.Padding.popover)
         .frame(width: 320, alignment: .leading)
         .background(Color.backgroundRaised)
+        .overlay {
+            if drag.isTargeted {
+                FileDropGlow()
+                    .padding(1)
+            }
+        }
+        .fileDropTarget(isEnabled: model.canEdit, state: $drag) { urls in
+            files.addFiles(urls, to: current)
+        }
+        .onAppear {
+            files.requestCounts(for: [current])
+        }
         .onDeleteCommand {
             requestDelete()
         }
@@ -49,7 +72,8 @@ struct EventDetailsView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        let editShortcut: KeyboardShortcut? = isFileListFocused ? nil : .defaultAction
+        return HStack(spacing: 8) {
             Button(role: .destructive) {
                 requestDelete()
             } label: {
@@ -59,7 +83,7 @@ struct EventDetailsView: View {
             .help("Delete Event")
             Spacer(minLength: 8)
             Button("Edit", action: onEdit)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(editShortcut)
                 .help("Edit Event")
         }
         .disabled(!model.canEdit)
@@ -68,6 +92,21 @@ struct EventDetailsView: View {
     private func requestDelete() {
         guard model.canEdit else { return }
         showsDeleteConfirmation = true
+    }
+
+    /// The files in the occurrence's folder: as last listed here, else as the files controller knows.
+    private func fileCount(of occurrence: Occurrence) -> Int {
+        loadedFileCount ?? files.fileCount(for: occurrence) ?? 0
+    }
+}
+
+/// A 1 pt `SeparatorLine` between the popover's parts.
+private struct EventDetailsSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.separatorLine)
+            .frame(height: 1)
+            .accessibilityHidden(true)
     }
 }
 

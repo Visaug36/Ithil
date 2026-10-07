@@ -2,9 +2,14 @@ import IthilCore
 import SwiftUI
 
 /// The main window's content: one screen per `LibraryState`, plus the alerts for a recovered library,
-/// a failed save and a folder that can't be used.
+/// a failed save, a folder that can't be used and a file operation that failed.
 struct MainView: View {
+    /// The main window's scene ID, for `openWindow(id:)` (clicking a notification while no window is open).
+    static let windowID = "main"
+
     @Environment(AppModel.self) private var model
+    @Environment(NotificationsController.self) private var notifications
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         content
@@ -12,6 +17,13 @@ struct MainView: View {
             .modifier(RecoveryAlert())
             .modifier(SaveErrorAlert())
             .modifier(FolderErrorAlert())
+            .modifier(FilesErrorAlert())
+            .onAppear {
+                let openWindow = openWindow
+                notifications.openMainWindow = {
+                    openWindow(id: MainView.windowID)
+                }
+            }
     }
 
     @ViewBuilder private var content: some View {
@@ -125,6 +137,21 @@ private struct FolderErrorAlert: ViewModifier {
         let message = model.folderError
         let isPresented = $alerts.showsFolderError
         content.alert("Ithil can't use that folder", isPresented: isPresented, presenting: message) { _ in
+            Button("OK") {}
+        } message: { message in
+            Text(verbatim: message)
+        }
+    }
+}
+
+private struct FilesErrorAlert: ViewModifier {
+    @Environment(FilesController.self) private var files
+
+    func body(content: Content) -> some View {
+        @Bindable var alerts = files
+        let message = files.lastError
+        let isPresented = $alerts.showsLastError
+        content.alert("There was a problem with your files", isPresented: isPresented, presenting: message) { _ in
             Button("OK") {}
         } message: { message in
             Text(verbatim: message)

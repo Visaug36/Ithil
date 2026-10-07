@@ -6,7 +6,10 @@ import SwiftUI
 /// - New events are added with `AppModel.add`; a timed one gets the calendar's time zone.
 /// - Edits go through `AppModel.update`. A repeating occurrence first asks "This Event Only" / "All
 ///   Future Events"; an edit that changes nothing just closes. Edited timed events keep their own zone.
-/// - In edit mode "Delete Event" asks first (and which occurrences, for a repeating event).
+/// - In edit mode "Delete Event" asks first (and which occurrences, for a repeating event, and what
+///   happens to its files).
+/// - Below the form, a drop zone takes files (DESIGN.md screen 5). An edited event gets them at once; a
+///   new event keeps them until Add Event, then they are copied into its folder.
 ///
 /// The caller presents it (usually as a popover) and dismisses it in `onClose`, which runs after Cancel,
 /// Add Event, Done and Delete.
@@ -19,11 +22,14 @@ struct EventEditorView: View {
     }
 
     @Environment(AppModel.self) private var model
+    @Environment(FilesController.self) private var files
     private let mode: Mode
     private let onClose: () -> Void
     @State private var draft: EventEditorDraft
     /// The fields as they were when the editor opened, to tell whether anything changed.
     @State private var original: EventEditorDraft
+    /// Files dropped on a new event, copied into its folder once it is added.
+    @State private var pendingFiles: [URL] = []
     @State private var hasPrepared = false
     @State private var showsSaveConfirmation = false
     @State private var showsDeleteConfirmation = false
@@ -41,6 +47,7 @@ struct EventEditorView: View {
         VStack(alignment: .leading, spacing: 16) {
             EventEditorHeader(draft: $draft, titleFocused: $titleFocused)
             EventEditorFields(draft: $draft)
+            EditorFilesSection(preview: filesPreview, existing: libraryOccurrence, pending: $pendingFiles)
             footer
         }
         .padding(Metrics.Padding.popover)
@@ -100,12 +107,35 @@ struct EventEditorView: View {
         }
     }
 
-    /// What the save and delete questions say: the event as it is in the library.
+    /// The edited occurrence as it is in the library now; nil for a new event.
+    private var libraryOccurrence: Occurrence? {
+        guard let occurrence = editedOccurrence else { return nil }
+        return model.occurrence(id: occurrence.id) ?? occurrence
+    }
+
+    /// What the save and delete questions say: the event as it is in the library, and its files.
     private var changeContext: EventChangeContext {
         guard let occurrence = editedOccurrence else {
             return EventChangeContext(title: fallbackTitle, repeats: false, dayAndTime: "")
         }
-        return EventChangeContext(occurrence: occurrence, timeZone: model.timeZone)
+        let fileCount = files.fileCount(for: libraryOccurrence ?? occurrence) ?? 0
+        return EventChangeContext(occurrence: occurrence, timeZone: model.timeZone, fileCount: fileCount)
+    }
+
+    /// The occurrence as the form describes it now, to show where its files go.
+    private var filesPreview: Occurrence {
+        let base: Event
+        let eventTimeZone: TimeZone
+        switch mode {
+        case .new(let event):
+            base = event
+            eventTimeZone = model.timeZone
+        case .edit(let occurrence):
+            base = occurrence.event
+            eventTimeZone = occurrence.event.timing.timeZone ?? model.timeZone
+        }
+        let event = draft.event(updating: base, eventTimeZone: eventTimeZone, fallbackTitle: fallbackTitle)
+        return EditorFilesPreview.occurrence(of: event, displayTimeZone: model.timeZone)
     }
 
     private var fallbackTitle: String {
@@ -138,6 +168,7 @@ struct EventEditorView: View {
         case .new(let event):
             let added = draft.event(updating: event, eventTimeZone: model.timeZone, fallbackTitle: fallbackTitle)
             model.add(added)
+            copyPendingFiles(into: added)
             onClose()
         case .edit(let occurrence):
             if draft == original {
@@ -162,6 +193,16 @@ struct EventEditorView: View {
         guard let occurrence = editedOccurrence else { return }
         model.delete(occurrence, scope: scope)
         onClose()
+    }
+
+    /// Copies the files dropped on a new event into the folder of its first occurrence, now that it is in
+    /// the library.
+    private func copyPendingFiles(into event: Event) {
+        guard !pendingFiles.isEmpty else { return }
+        let id = Occurrence.ID(eventID: event.id, date: event.timing.startDate)
+        guard let occurrence = model.occurrence(id: id) else { return }
+        files.addFiles(pendingFiles, to: occurrence)
+        pendingFiles = []
     }
 
     /// The form's fields for `mode`, with days and times shown in `displayTimeZone`.

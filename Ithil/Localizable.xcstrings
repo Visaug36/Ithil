@@ -1,6 +1,62 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ in %lld days" : {
+      "comment" : "Notification title: starts in N days",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ in %2$lld days"
+          }
+        }
+      }
+    },
+    "%@ in %lld h %lld min" : {
+      "comment" : "Notification title: starts in N hours and M minutes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ in %2$lld h %3$lld min"
+          }
+        }
+      }
+    },
+    "%@ in %lld hours" : {
+      "comment" : "Notification title: starts in N hours",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ in %2$lld hours"
+          }
+        }
+      }
+    },
+    "%@ in %lld min" : {
+      "comment" : "Notification title: starts in N minutes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ in %2$lld min"
+          }
+        }
+      }
+    },
+    "%@ in 1 hour" : {
+      "comment" : "Notification title: starts in one hour"
+    },
+    "%@ is starting" : {
+      "comment" : "Notification title: an event starts now"
+    },
+    "%@ today" : {
+      "comment" : "Notification title: an all-day event is today"
+    },
+    "%@ tomorrow" : {
+      "comment" : "Notification title: an event is tomorrow"
+    },
     "%@ · %@" : {
       "comment" : "Joins parts of an event's description",
       "localizations" : {
@@ -65,6 +121,12 @@
     "%lld days before" : {
 
     },
+    "%lld files" : {
+
+    },
+    "%lld files to add" : {
+
+    },
     "%lld hours before" : {
 
     },
@@ -74,7 +136,23 @@
     "%lld more" : {
 
     },
+    "%lld of %lld items were copied and are in the event's folder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld items were copied and are in the event's folder."
+          }
+        }
+      }
+    },
     "1 day before" : {
+
+    },
+    "1 file" : {
+
+    },
+    "1 file to add" : {
 
     },
     "1 hour before" : {
@@ -86,7 +164,16 @@
     "A quiet day." : {
 
     },
+    "Add" : {
+
+    },
     "Add Event" : {
+
+    },
+    "Add Files" : {
+
+    },
+    "Add Files…" : {
 
     },
     "Add Location" : {
@@ -110,6 +197,9 @@
     "Alert" : {
 
     },
+    "Alerts arrive even when Ithil is closed. Their style and sound are set in System Settings." : {
+
+    },
     "All Future Events" : {
 
     },
@@ -122,22 +212,52 @@
     "Appearance" : {
 
     },
+    "Asks macOS to let Ithil show alerts" : {
+
+    },
     "At time of event" : {
 
     },
     "Cancel" : {
 
     },
+    "Change Ithil Folder" : {
+
+    },
     "Changes made after that may be missing." : {
+
+    },
+    "Change…" : {
+
+    },
+    "Checking…" : {
+
+    },
+    "Choose" : {
 
     },
     "Choose Another Folder…" : {
 
     },
+    "Choose a Different Folder" : {
+
+    },
     "Choose a Folder for Ithil" : {
 
     },
+    "Choose a New Place for Ithil" : {
+
+    },
+    "Choose a folder to move your calendar to, or another Ithil folder to open." : {
+
+    },
     "Choose an Ithil folder, or a folder to create one in." : {
+
+    },
+    "Choose files or folders to copy into “%@”. The originals stay where they are." : {
+
+    },
+    "Choose that folder with Change… to open it." : {
 
     },
     "Choose the folder that has your Ithil calendar in it." : {
@@ -152,7 +272,27 @@
     "Color" : {
 
     },
+    "Copied into %@" : {
+      "comment" : "Where dropped files go: the event's folder name"
+    },
+    "Copied to %@" : {
+      "comment" : "Where dropped files go: the path of the event's folder"
+    },
     "Copy the folder to back up everything, or open it on another Mac to pick up where you left off." : {
+
+    },
+    "Copying %lld of %lld…" : {
+      "comment" : "Progress of copying files into an event",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Copying %1$lld of %2$lld…"
+          }
+        }
+      }
+    },
+    "Couldn't Move Your Calendar" : {
 
     },
     "Create" : {
@@ -194,10 +334,31 @@
     "Delete “%@”?" : {
 
     },
-    "Demo mode: this is a temporary folder with sample data. Your own calendar isn't touched." : {
+    "Demo mode never schedules notifications, so your real alerts stay as they are." : {
+
+    },
+    "Demo mode uses a temporary folder with sample data, so it can't be changed." : {
+
+    },
+    "Document" : {
 
     },
     "Done" : {
+
+    },
+    "Don’t Add These Files" : {
+
+    },
+    "Drop files here" : {
+
+    },
+    "Drop to add %lld files" : {
+
+    },
+    "Drop to add 1 file" : {
+
+    },
+    "Drop to add files" : {
 
     },
     "Duration %@" : {
@@ -242,13 +403,25 @@
     "Every month on the %@" : {
       "comment" : "Repeats monthly; an ordinal like 6th"
     },
+    "Everything moves to %@. Other files there aren't touched." : {
+
+    },
     "Fern" : {
 
     },
     "Files" : {
 
     },
+    "Files can't be added right now, because no calendar is open for changes." : {
+
+    },
+    "Files · %lld" : {
+      "comment" : "Section label above an event's files, with how many"
+    },
     "First day of week" : {
+
+    },
+    "Folder" : {
 
     },
     "Folder name:" : {
@@ -260,7 +433,13 @@
     "General" : {
 
     },
+    "Get a nudge before class" : {
+
+    },
     "Hidden" : {
+
+    },
+    "Hides this suggestion" : {
 
     },
     "If it's on an external drive, connect the drive and choose Try Again." : {
@@ -269,10 +448,31 @@
     "Iris" : {
 
     },
+    "It can't be copied there. A folder can't be copied into itself." : {
+
+    },
     "It may have been moved, renamed or deleted, or it's on a drive that isn't connected." : {
 
     },
+    "It would have ended up outside your Ithil folder, so Ithil stopped." : {
+
+    },
+    "It's no longer there." : {
+
+    },
+    "It's still in your Ithil folder." : {
+
+    },
+    "Ithil already keeps your calendar in that folder." : {
+
+    },
+    "Ithil can remind you before events, even when it's closed. You pick the alert for each event." : {
+
+    },
     "Ithil can't find its folder" : {
+
+    },
+    "Ithil can't find its folder, or a file has the name a folder needs." : {
 
     },
     "Ithil can't find its folder. Your changes are still open in Ithil." : {
@@ -284,10 +484,31 @@
     "Ithil can't use that folder" : {
 
     },
+    "Ithil can't use that folder. Choose another one." : {
+
+    },
+    "Ithil couldn't copy the files." : {
+
+    },
+    "Ithil couldn't copy “%@”." : {
+
+    },
     "Ithil couldn't create a calendar in this folder." : {
 
     },
+    "Ithil couldn't move the folder of “%@” to the Trash." : {
+
+    },
+    "Ithil couldn't move your calendar, so it stays in its current folder." : {
+
+    },
+    "Ithil couldn't move “%@” to the Trash." : {
+
+    },
     "Ithil couldn't open the calendar in this folder." : {
+
+    },
+    "Ithil couldn't rename the folder of “%@”." : {
 
     },
     "Ithil couldn't save your changes" : {
@@ -305,10 +526,34 @@
     "Ithil found no calendar file here, and no backup to restore one from." : {
 
     },
+    "Ithil is moving your calendar." : {
+
+    },
+    "Ithil is moving your calendar. Add the files again once it's done." : {
+
+    },
+    "Ithil is still copying files into your events." : {
+
+    },
+    "Ithil is still copying files into your events. Try again once they're done." : {
+
+    },
+    "Ithil is still saving your latest changes." : {
+
+    },
+    "Ithil is still saving your latest changes. Try again in a moment." : {
+
+    },
+    "Ithil isn't allowed to use it." : {
+
+    },
     "Ithil keeps your calendar and every event's files in this folder." : {
 
     },
     "Ithil left the file as it was." : {
+
+    },
+    "Ithil reminds you before events that have an alert, even when it's closed." : {
 
     },
     "Ithil restored its newest backup." : {
@@ -324,6 +569,9 @@
 
     },
     "Ithil restored your calendar" : {
+
+    },
+    "Its files are still in the old folder." : {
 
     },
     "Keywords" : {
@@ -342,6 +590,30 @@
 
     },
     "Month" : {
+
+    },
+    "Move Everything" : {
+
+    },
+    "Move to Trash" : {
+
+    },
+    "Move to Trash?" : {
+
+    },
+    "Move to Trash…" : {
+
+    },
+    "Move your calendar and its files to “%@”?" : {
+
+    },
+    "Move “%@” to the Trash?" : {
+
+    },
+    "Moves your calendar to another folder, or opens another Ithil folder" : {
+
+    },
+    "Moving your calendar…" : {
 
     },
     "Name" : {
@@ -380,7 +652,16 @@
     "No Subject" : {
 
     },
+    "No app on this Mac could open “%@”." : {
+
+    },
+    "No calendar is open for changes right now." : {
+
+    },
     "No events match “%@”." : {
+
+    },
+    "No files yet. Drop some here." : {
 
     },
     "No folder open" : {
@@ -391,6 +672,12 @@
     },
     "None" : {
       "comment" : "No alert"
+    },
+    "Not Now" : {
+
+    },
+    "Not turned on" : {
+
     },
     "Notes" : {
 
@@ -404,19 +691,61 @@
     "Nothing planned. Press ⌘N to add something." : {
 
     },
+    "Notification Settings…" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Notifications are off for Ithil" : {
+
+    },
+    "Notifications are on" : {
+
+    },
     "Now" : {
 
     },
     "OK" : {
 
     },
+    "Off" : {
+
+    },
+    "Off in demo mode" : {
+
+    },
+    "On" : {
+
+    },
+    "Open" : {
+
+    },
+    "Open Files" : {
+
+    },
     "Open Settings…" : {
+
+    },
+    "Open System Settings" : {
+
+    },
+    "Open That Calendar" : {
+
+    },
+    "Open the calendar in “%@”?" : {
 
     },
     "Open your calendar in Ithil to add events." : {
 
     },
     "Opening your calendar" : {
+
+    },
+    "Opens Ithil in System Settings → Notifications" : {
+
+    },
+    "Opens the file" : {
 
     },
     "Past" : {
@@ -438,6 +767,9 @@
 
     },
     "Quick Add picks a subject when you type its name or a keyword." : {
+
+    },
+    "Quick Look" : {
 
     },
     "Read-only: this calendar was saved by a newer version of Ithil. Update Ithil to make changes." : {
@@ -473,6 +805,9 @@
     "Show in Finder" : {
 
     },
+    "Show the event’s folder in Finder" : {
+
+    },
     "Shown" : {
 
     },
@@ -482,10 +817,22 @@
     "Shows the event in the calendar" : {
 
     },
+    "Shows your Ithil folder in Finder" : {
+
+    },
+    "Something with that name is already there." : {
+
+    },
+    "Space" : {
+      "comment" : "The Space bar, which shows a file in Quick Look"
+    },
     "Start Time" : {
 
     },
     "Start a New Calendar Here" : {
+
+    },
+    "Stop Copying" : {
 
     },
     "Subject" : {
@@ -512,10 +859,22 @@
     "Teal" : {
 
     },
+    "That folder already has an Ithil calendar. Your current one stays where it is." : {
+
+    },
+    "That folder changed in the meantime. Choose it again." : {
+
+    },
     "That folder doesn't have an Ithil calendar in it." : {
 
     },
+    "That folder is inside your Ithil folder. Choose a folder outside it." : {
+
+    },
     "The calendar file is damaged, and there's no backup Ithil can restore it from." : {
+
+    },
+    "The calendar moved, but couldn't be opened in its new folder." : {
 
     },
     "The damaged file was kept at %@." : {
@@ -524,10 +883,34 @@
     "The demo uses a temporary folder, so it can't switch to another one." : {
 
     },
+    "The disk is read-only." : {
+
+    },
+    "The event no longer exists." : {
+
+    },
+    "The folder changed in the meantime." : {
+
+    },
+    "The folders of the deleted events, with any files in them, are moved to the Trash." : {
+
+    },
+    "There isn't enough space on the disk." : {
+
+    },
+    "There was a problem with your files" : {
+
+    },
     "There's no calendar in this folder" : {
 
     },
+    "They’re copied to %@ and show up in Finder too." : {
+
+    },
     "This Event Only" : {
+
+    },
+    "This calendar was saved by a newer version of Ithil, so it's read-only and can't be moved." : {
 
     },
     "This calendar was saved by a newer version of Ithil." : {
@@ -537,6 +920,12 @@
 
     },
     "This is a repeating event. Delete only this event, or this and all future events?" : {
+
+    },
+    "This one has %lld files. The folders of the deleted events are moved to the Trash." : {
+
+    },
+    "This one has 1 file. The folders of the deleted events are moved to the Trash." : {
 
     },
     "This version of Ithil won't change it." : {
@@ -560,6 +949,15 @@
     "Try Again" : {
 
     },
+    "Turn On Notifications" : {
+
+    },
+    "Turn On…" : {
+
+    },
+    "Turn them on in System Settings → Notifications → Ithil." : {
+
+    },
     "Type what it is, the day and the time." : {
 
     },
@@ -567,6 +965,9 @@
 
     },
     "Upcoming" : {
+
+    },
+    "Update Ithil to make changes." : {
 
     },
     "Update Ithil to open it." : {
@@ -587,10 +988,25 @@
     "Yesterday" : {
 
     },
+    "You can put it back from the Trash in Finder." : {
+
+    },
+    "Your calendar and its files moved, but Ithil couldn't open them in the new folder." : {
+
+    },
+    "Your calendar can't be moved right now, because it isn't open for changes." : {
+
+    },
     "Your calendar file was damaged." : {
 
     },
     "Your calendar file was missing." : {
+
+    },
+    "Your calendar is already being moved." : {
+
+    },
+    "Your own calendar isn't touched." : {
 
     },
     "all-day" : {
@@ -610,6 +1026,19 @@
     },
     "until %@" : {
       "comment" : "Up next: ends at a time"
+    },
+    "“%@” has %lld files. Its folder will be moved to the Trash." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” has %2$lld files. Its folder will be moved to the Trash."
+          }
+        }
+      }
+    },
+    "“%@” has 1 file. Its folder will be moved to the Trash." : {
+
     },
     "↩ Add" : {
 

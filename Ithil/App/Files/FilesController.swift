@@ -1,0 +1,815 @@
+import AppKit
+import Foundation
+import IthilCore
+import Observation
+import os
+
+private let logger = Logger(subsystem: "io.github.visaug36.Ithil", category: "FilesController")
+
+/// Event files for the app: counts on event blocks, file lists, adding files, Finder and the Trash, moving
+/// the library, and keeping event folders in step with the library. Injected with `.environment(files)`.
+///
+/// - The folder is the source of truth: counts and lists are read from disk on the `EventFolders` actor,
+///   never on the main thread, and refreshed when `RootFolderWatcher` sees changes made in Finder.
+/// - Everything that changes the disk (copies, folder renames and moves, the Trash, a library move) runs
+///   one at a time, in the order it was asked for, so a rename never races a copy into the same folder.
+/// - Files are copied, never moved; folders and files go to the Trash, never deleted; nothing is written
+///   outside the root. Folders are trashed only for occurrences the user deleted (after the UI asked).
+/// - Work started for one library is dropped when another one opens (`session`).
+@Observable @MainActor
+final class FilesController: LibraryChangeObserver {
+    // MARK: - Observed state
+
+    /// The open library's root, following `LibraryChange.opened`.
+    private(set) var root: URL? = nil
+    /// Known file counts. A missing entry means not loaded yet: show nothing.
+    private(set) var fileCounts: [Occurrence.ID: Int] = [:]
+    /// Bumped whenever files may have changed: Finder edits, copies, renames, the Trash, another library.
+    private(set) var changeToken = 0
+    /// Copies in progress, or waiting their turn, by occurrence.
+    private(set) var imports: [Occurrence.ID: FileCopyProgress] = [:]
+    /// The library is being moved to another folder (Settings → Files).
+    private(set) var isMovingLibrary = false
+    /// The last failure as a sentence for the user. `MainView` shows it as an alert, then sets nil.
+    var lastError: String? = nil
+
+    /// For `.alert(isPresented:)`.
+    var showsLastError: Bool {
+        get { lastError != nil }
+        set {
+            if !newValue {
+                lastError = nil
+            }
+        }
+    }
+
+    // MARK: - Private state
+
+    private let model: AppModel
+    /// A preview controller never touches the disk.
+    private let isPreview: Bool
+    @ObservationIgnored private var folders: EventFolders? = nil
+    @ObservationIgnored private var watcher: RootFolderWatcher? = nil
+    /// The root with symbolic links resolved, as FSEvents reports paths; nil until worked out.
+    @ObservationIgnored private var resolvedRootPath: String? = nil
+    /// Bumped whenever a library opens; results of work for an earlier one are dropped.
+    @ObservationIgnored private var session = 0
+    /// Occurrences whose counts were asked for, kept up to date after changes (the newest ones).
+    @ObservationIgnored private var requested: [Occurrence.ID: Occurrence] = [:]
+    @ObservationIgnored private var requestOrder: [Occurrence.ID] = []
+    @ObservationIgnored private var pendingCounts: [Occurrence.ID: Occurrence] = [:]
+    @ObservationIgnored private var countingIDs: Set<Occurrence.ID> = []
+    @ObservationIgnored private var countTask: Task<Void, Never>? = nil
+    @ObservationIgnored private var isReindexing = false
+    @ObservationIgnored private var needsAnotherReindex = false
+    /// The last piece of disk work; the next one waits for it.
+    @ObservationIgnored private var lastWork: Task<Void, Never>? = nil
+    @ObservationIgnored private var importJobs: [Occurrence.ID: FileImportJob] = [:]
+    /// Files dropped on an occurrence while a copy into it was running; copied right after it.
+    @ObservationIgnored private var queuedSources: [Occurrence.ID: [URL]] = [:]
+    @ObservationIgnored private var importNumber = 0
+    @ObservationIgnored private var demoFilesRoot: URL? = nil
+    /// Edits and deletions made while the library was moving; their folders follow once it has moved.
+    @ObservationIgnored private var changesDuringMove: [DeferredFolderChange] = []
+    @ObservationIgnored private var previewFiles: [Occurrence.ID: [EventFile]] = [:]
+
+    /// How long `requestCounts` collects requests before reading the disk.
+    private static let countDelay: Duration = .milliseconds(50)
+    /// The most occurrences read in one turn on the actor.
+    private static let countBatchSize = 500
+    /// How many requested occurrences are kept up to date; older ones are read again when asked for.
+    private static let maximumRemembered = 3_000
+
+    /// Registers as a library observer. If the model already has a library open, follows it at once.
+    init(model: AppModel) {
+        self.model = model
+        self.isPreview = false
+        model.addChangeObserver(self)
+        if model.state == .ready, let current = model.rootURL {
+            startSession(at: current)
+        }
+    }
+
+    private init(previewModel: AppModel) {
+        self.model = previewModel
+        self.isPreview = true
+        let samples = DemoFiles.previewFiles(for: previewModel.library, timeZone: previewModel.timeZone)
+        previewFiles = samples
+        fileCounts = samples.mapValues(\.count)
+    }
+
+    /// The demo week's sample files in memory, with no folder and no disk access, for SwiftUI previews.
+    static var preview: FilesController {
+        FilesController(previewModel: AppModel.preview)
+    }
+
+    // MARK: - Counts
+
+    /// Asks for the file counts of `occurrences`, e.g. the ones on screen. Cheap to call often: requests
+    /// are de-duplicated, collected for a moment and read off the main thread; `fileCounts` updates once
+    /// they are known.
+    func requestCounts(for occurrences: [Occurrence]) {
+        guard folders != nil else { return }
+        var added = false
+        for occurrence in occurrences {
+            let id = occurrence.id
+            let isKnown = fileCounts[id] != nil || pendingCounts[id] != nil || countingIDs.contains(id)
+            if isKnown, requested[id] == occurrence {
+                continue
+            }
+            remember(occurrence)
+            pendingCounts[id] = occurrence
+            added = true
+        }
+        if added {
+            scheduleCounting()
+        }
+    }
+
+    /// The occurrence's known file count, or nil while it isn't known yet (then it is asked for).
+    func fileCount(for occurrence: Occurrence) -> Int? {
+        if requested[occurrence.id] == nil {
+            requestCounts(for: [occurrence])
+        }
+        return fileCounts[occurrence.id]
+    }
+
+    /// A count for notification bodies, read on the `EventFolders` actor of whatever library is open
+    /// when it is called. 0 when no library is open.
+    func makeFileCountProvider() -> @Sendable (Occurrence) async -> Int {
+        if isPreview {
+            let counts = fileCounts
+            return { occurrence in counts[occurrence.id] ?? 0 }
+        }
+        return { [weak self] occurrence in
+            guard let folders = await self?.currentFolders() else { return 0 }
+            return await folders.fileCount(for: occurrence)
+        }
+    }
+
+    private func currentFolders() -> EventFolders? {
+        folders
+    }
+
+    private func remember(_ occurrence: Occurrence) {
+        let id = occurrence.id
+        guard requested.updateValue(occurrence, forKey: id) == nil else { return }
+        requestOrder.append(id)
+        let overflow = requestOrder.count - Self.maximumRemembered
+        // Forget in chunks, so this stays cheap.
+        guard overflow >= Self.maximumRemembered / 10 else { return }
+        for forgotten in requestOrder.prefix(overflow) {
+            requested[forgotten] = nil
+        }
+        requestOrder.removeFirst(overflow)
+    }
+
+    private func scheduleCounting() {
+        guard countTask == nil else { return }
+        let session = self.session
+        countTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: FilesController.countDelay)
+            } catch {
+                return
+            }
+            await self?.drainCounts(session: session)
+        }
+    }
+
+    /// Reads the pending counts in batches, one batch at a time, so a newer read never loses to an older one.
+    private func drainCounts(session: Int) async {
+        while session == self.session, let folders, !pendingCounts.isEmpty {
+            let batch = Array(pendingCounts.values.prefix(Self.countBatchSize))
+            for occurrence in batch {
+                pendingCounts[occurrence.id] = nil
+            }
+            countingIDs = Set(batch.map(\.id))
+            let counts = await folders.fileCounts(for: batch)
+            guard session == self.session else { return }
+            countingIDs = []
+            apply(counts)
+        }
+        if session == self.session {
+            countTask = nil
+        }
+    }
+
+    /// Stores new counts with one change to `fileCounts`, and none if nothing changed.
+    private func apply(_ counts: [Occurrence.ID: Int]) {
+        var updated = fileCounts
+        var changed = false
+        for (id, count) in counts where updated[id] != count {
+            updated[id] = count
+            changed = true
+        }
+        if changed {
+            fileCounts = updated
+        }
+    }
+
+    /// Reads every remembered count again and tells the views (file lists follow `changeToken`).
+    private func filesChanged(session: Int) {
+        guard session == self.session else { return }
+        for (id, occurrence) in requested {
+            pendingCounts[id] = occurrence
+        }
+        if !pendingCounts.isEmpty {
+            scheduleCounting()
+        }
+        changeToken += 1
+    }
+
+    // MARK: - Listing and Finder
+
+    /// The visible items in the occurrence's folder, sorted like Finder; empty when it has none.
+    func files(for occurrence: Occurrence) async -> [EventFile] {
+        if isPreview {
+            return previewFiles[occurrence.id] ?? []
+        }
+        guard let folders else { return [] }
+        let session = self.session
+        let files = await folders.files(for: occurrence)
+        if session == self.session {
+            remember(occurrence)
+            apply([occurrence.id: files.count])
+        }
+        return files
+    }
+
+    /// The occurrence's folder, or nil while it has none. Never creates one.
+    func folderURL(for occurrence: Occurrence) async -> URL? {
+        guard let folders else { return nil }
+        return await folders.existingFolder(for: occurrence)
+    }
+
+    /// Opens the occurrence's folder in Finder; if it has none yet, its day folder, or else the root.
+    func revealInFinder(_ occurrence: Occurrence) {
+        guard let folders else { return }
+        Task {
+            let target = await folders.finderTarget(for: occurrence)
+            if !NSWorkspace.shared.open(target) {
+                NSWorkspace.shared.activateFileViewerSelecting([target])
+            }
+        }
+    }
+
+    /// Shows the file selected in a Finder window.
+    func reveal(_ file: EventFile) {
+        NSWorkspace.shared.activateFileViewerSelecting([file.url])
+    }
+
+    /// Opens the file in its default app.
+    func open(_ file: EventFile) {
+        if !NSWorkspace.shared.open(file.url) {
+            lastError = FileMessages.couldNotOpenFile(name: file.name)
+        }
+    }
+
+    /// Moves one file (or folder) from an event's folder to the Trash. Never deletes anything.
+    func moveToTrash(_ file: EventFile) {
+        guard !isPreview else { return }
+        guard model.canEdit, let folders else {
+            lastError = FileMessages.couldNotTrashFile(name: file.name, error: FilesError.notReady)
+            return
+        }
+        let session = self.session
+        enqueueWork { [weak self] in
+            let failure = await FilesController.trash(file, folders: folders)
+            self?.fileTrashed(file, failure: failure, session: session)
+        }
+    }
+
+    private func fileTrashed(_ file: EventFile, failure: (any Error)?, session: Int) {
+        guard session == self.session else { return }
+        if let failure {
+            let reason = String(describing: failure)
+            logger.error("Could not trash \(file.name, privacy: .private): \(reason, privacy: .private)")
+            lastError = FileMessages.couldNotTrashFile(name: file.name, error: failure)
+        } else {
+            logger.info("Moved \(file.name, privacy: .private) to the Trash")
+        }
+        filesChanged(session: session)
+    }
+
+    /// Trashes an item that is inside an event folder of `folders` (at least three levels below the root:
+    /// day folder, event folder, item), and nothing else.
+    nonisolated private static func trash(_ file: EventFile, folders: EventFolders) async -> (any Error)? {
+        let url = file.url.standardizedFileURL
+        let rootDepth = folders.root.standardizedFileURL.pathComponents.count
+        let isInEventFolder = folders.contains(url) && url.pathComponents.count >= rootDepth + 3
+        guard isInEventFolder, !url.lastPathComponent.hasPrefix(".") else {
+            return EventFoldersError.outsideRoot(url.path)
+        }
+        do {
+            try LocalFileSystem().trashItem(at: url)
+            return nil
+        } catch {
+            return error
+        }
+    }
+
+    // MARK: - Names
+
+    /// Where the occurrence's files go, for the editor and details: "Ithil › 2026-10-06 › 14.00 Physics
+    /// Lecture". The expected place, even if the folder was renamed in Finder.
+    func displayPath(for occurrence: Occurrence) -> String {
+        let rootName = root?.lastPathComponent ?? RootFolderPolicy.defaultFolderName
+        let dayName = FolderNaming.dayFolderName(for: occurrence)
+        return [rootName, dayName, FolderNaming.eventFolderName(for: occurrence)].joined(separator: " › ")
+    }
+
+    /// The occurrence's folder name: "14.00 Physics Lecture".
+    func folderName(for occurrence: Occurrence) -> String {
+        FolderNaming.eventFolderName(for: occurrence)
+    }
+
+    // MARK: - Adding files
+
+    /// Copies (never moves) `urls` into the occurrence's folder, creating it if needed, in the background
+    /// with progress in `imports`. Files dropped while a copy into the same occurrence runs are copied
+    /// right after it. The occurrence must already be in the library (add a new event first). Failures
+    /// set `lastError`; cancelling is silent.
+    func addFiles(_ urls: [URL], to occurrence: Occurrence) {
+        guard !isPreview else { return }
+        let sources = Self.uniqueFileURLs(urls)
+        guard !sources.isEmpty else { return }
+        guard !isMovingLibrary else {
+            lastError = FileMessages.cannotAddWhileMoving
+            return
+        }
+        guard model.canEdit, folders != nil else {
+            lastError = FileMessages.cannotAddFilesNow
+            return
+        }
+        guard let current = model.occurrence(id: occurrence.id) else {
+            lastError = FileMessages.importFailed(FilesError.eventNotFound, progress: nil)
+            return
+        }
+        let id = current.id
+        guard importJobs[id] == nil else {
+            var queued = queuedSources[id] ?? []
+            for source in sources where !queued.contains(source) {
+                queued.append(source)
+            }
+            queuedSources[id] = queued
+            if imports[id] == nil {
+                imports[id] = FileCopyProgress(totalFiles: queued.count)
+            }
+            return
+        }
+        startImport(sources, for: current)
+    }
+
+    /// Stops the copy into the occurrence and drops files waiting for it. Items already copied stay.
+    func cancelImport(for occurrence: Occurrence) {
+        let id = occurrence.id
+        queuedSources[id] = nil
+        imports[id] = nil
+        guard var job = importJobs[id] else { return }
+        job.isCancelled = true
+        importJobs[id] = job
+        job.task.cancel()
+    }
+
+    private func startImport(_ sources: [URL], for occurrence: Occurrence) {
+        guard let folders, let root else { return }
+        importNumber += 1
+        let number = importNumber
+        let id = occurrence.id
+        let session = self.session
+        imports[id] = FileCopyProgress(totalFiles: sources.count)
+        let gate = ImportProgressGate()
+        let deliver: @MainActor @Sendable (FileCopyProgress) -> Void = { [weak self] progress in
+            self?.importProgressed(progress, id: id, number: number)
+        }
+        let task = enqueueWork { [weak self] in
+            let outcome = await FilesController.performImport(
+                sources, for: occurrence, folders: folders, root: root, gate: gate, deliver: deliver)
+            self?.importFinished(outcome, id: id, number: number, session: session)
+        }
+        importJobs[id] = FileImportJob(number: number, occurrence: occurrence, task: task)
+        logger.info("Copying \(sources.count, privacy: .public) items into an event folder")
+    }
+
+    /// Makes the folder and copies into it, off the main actor. Starts the security scope of each source
+    /// for the copy (needed for files from a file importer; harmless otherwise).
+    nonisolated private static func performImport(
+        _ sources: [URL],
+        for occurrence: Occurrence,
+        folders: EventFolders,
+        root: URL,
+        gate: ImportProgressGate,
+        deliver: @escaping @MainActor @Sendable (FileCopyProgress) -> Void
+    ) async -> FileImportOutcome {
+        guard !Task.isCancelled else { return .cancelled }
+        let folder: URL
+        do {
+            folder = try await folders.ensureFolder(for: occurrence)
+        } catch {
+            return .failed(error, progress: nil)
+        }
+        var accessed: [URL] = []
+        for source in sources where source.startAccessingSecurityScopedResource() {
+            accessed.append(source)
+        }
+        defer {
+            for source in accessed {
+                source.stopAccessingSecurityScopedResource()
+            }
+        }
+        let report: @Sendable (FileCopyProgress) -> Void = { progress in
+            if gate.admit(progress) {
+                Task { @MainActor in
+                    deliver(progress)
+                }
+            }
+        }
+        do {
+            let copied = try await FileImport.copy(
+                sources, into: folder, root: root, fileSystem: LocalFileSystem(), progress: report)
+            return .finished(count: copied.count)
+        } catch is CancellationError {
+            return .cancelled
+        } catch {
+            return .failed(error, progress: gate.latest)
+        }
+    }
+
+    private func importProgressed(_ progress: FileCopyProgress, id: Occurrence.ID, number: Int) {
+        guard let job = importJobs[id], job.number == number, !job.isCancelled else { return }
+        // Reports hop to the main actor one by one; never let an older one replace a newer one.
+        if let shown = imports[id], shown.totalBytes == progress.totalBytes {
+            let fewerBytes = progress.completedBytes < shown.completedBytes
+            guard !fewerBytes, progress.completedFiles >= shown.completedFiles else { return }
+        }
+        imports[id] = progress
+    }
+
+    private func importFinished(_ outcome: FileImportOutcome, id: Occurrence.ID, number: Int, session: Int) {
+        guard session == self.session, let job = importJobs[id], job.number == number else { return }
+        importJobs[id] = nil
+        imports[id] = nil
+        switch outcome {
+        case .finished(let count):
+            logger.info("Copied \(count, privacy: .public) items into an event folder")
+        case .cancelled:
+            logger.notice("Stopped copying files into an event folder")
+        case .failed(let error, let progress):
+            let reason = String(describing: error)
+            let name = progress?.currentName ?? ""
+            logger.error("Could not copy \(name, privacy: .private): \(reason, privacy: .private)")
+            if !job.isCancelled {
+                lastError = FileMessages.importFailed(error, progress: progress)
+            }
+        }
+        // Its count is read again even if no view asked for it yet.
+        remember(job.occurrence)
+        filesChanged(session: session)
+        startQueuedImport(for: id)
+    }
+
+    /// Copies the files that were dropped on the occurrence while the last copy into it ran.
+    private func startQueuedImport(for id: Occurrence.ID) {
+        guard let queued = queuedSources.removeValue(forKey: id), !queued.isEmpty else { return }
+        guard model.canEdit, !isMovingLibrary, let current = model.occurrence(id: id) else {
+            imports[id] = nil
+            lastError = FileMessages.importFailed(FilesError.eventNotFound, progress: nil)
+            return
+        }
+        startImport(queued, for: current)
+    }
+
+    /// File URLs only, each once, in order.
+    private static func uniqueFileURLs(_ urls: [URL]) -> [URL] {
+        var seen: Set<String> = []
+        var unique: [URL] = []
+        for url in urls where url.isFileURL {
+            if seen.insert(url.standardizedFileURL.path).inserted {
+                unique.append(url)
+            }
+        }
+        return unique
+    }
+
+    // MARK: - Disk work, one at a time
+
+    /// Runs `work` after every piece of disk work asked for before it. Cancelling the returned task
+    /// cancels `work`, not the work before it.
+    @discardableResult
+    private func enqueueWork(_ work: @escaping @MainActor @Sendable () async -> Void) -> Task<Void, Never> {
+        let previous = lastWork
+        let task = Task { @MainActor in
+            _ = await previous?.value
+            await work()
+        }
+        lastWork = task
+        return task
+    }
+
+    // MARK: - Moving the library
+
+    /// Moves the calendar and its files into `destination`, the folder the user chose in Settings: into
+    /// it when it is empty, otherwise into a new `Ithil` folder inside it (`LibraryFolderChoice`). Then
+    /// opens the library there (`AppModel.useFolder`) and returns once it has opened.
+    ///
+    /// Waits for pending saves and folder work first, and refuses while files are being copied. Only
+    /// Ithil's own items move (`LibraryMove`); if one can't, everything moves back and this throws.
+    func moveLibrary(to destination: URL) async throws {
+        guard !model.isDemo else { throw FilesError.demoMode }
+        guard model.canEdit, let oldRoot = model.rootURL, root != nil else { throw FilesError.notReady }
+        guard !isMovingLibrary else { throw FilesError.busy }
+        guard importJobs.isEmpty else { throw FilesError.importsRunning }
+        isMovingLibrary = true
+        // No edits from here until the library has reopened (`AppModel.canEdit`).
+        model.isMovingLibrary = true
+        defer {
+            finishMovingLibrary()
+        }
+        await model.finishPendingSaves(timeout: .seconds(10))
+        guard !model.hasPendingSaves else { throw FilesError.stillSaving }
+        let isStillOpen = model.state == .ready && !model.isReadOnly && model.rootURL == oldRoot
+        guard isStillOpen else { throw FilesError.notReady }
+
+        watcher?.stop()
+        let previous = lastWork
+        let move = Task<URL, any Error> { @MainActor in
+            _ = await previous?.value
+            return try await FilesController.runInBackground {
+                try LibraryFolderChoice.moveLibrary(from: oldRoot, toChosen: destination)
+            }
+        }
+        lastWork = Task {
+            _ = await move.result
+        }
+        let newRoot: URL
+        do {
+            newRoot = try await move.value
+        } catch {
+            let reason = String(describing: error)
+            logger.error("Could not move the library: \(reason, privacy: .private)")
+            if root == oldRoot {
+                // Everything moved back; look at the folder again, since the watcher was off.
+                startWatching(oldRoot)
+                reindex()
+            }
+            throw error
+        }
+        logger.notice("Moved the library to a new folder")
+        model.useFolder(newRoot)
+        await waitWhileOpening()
+        guard root != oldRoot || model.state == .loading else {
+            // The calendar moved, but opening it in its new folder failed (the model says why).
+            logger.error("Could not open the library after moving it")
+            startWatching(oldRoot)
+            reindex()
+            throw FilesError.movedButNotOpened
+        }
+    }
+
+    /// Ends a move: changes made meanwhile get their folders carried along (or trashed) in whatever
+    /// folder the same library is open in now.
+    private func finishMovingLibrary() {
+        isMovingLibrary = false
+        model.isMovingLibrary = false
+        let deferred = changesDuringMove
+        changesDuringMove = []
+        for item in deferred where item.new.id == model.library.id {
+            applyFolderChange(item.change, old: item.old, new: item.new)
+        }
+    }
+
+    /// Switches to another existing Ithil folder; the current one stays as it is.
+    func openLibrary(at folder: URL) {
+        guard !isMovingLibrary else {
+            lastError = FileMessages.libraryMoveFailed(FilesError.busy)
+            return
+        }
+        model.useFolder(folder)
+    }
+
+    /// Waits (up to 30 s) while the model opens a folder.
+    private func waitWhileOpening() async {
+        for _ in 0..<600 {
+            guard model.state == .loading else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(50))
+            } catch {
+                return
+            }
+        }
+    }
+
+    /// Runs blocking file work on a background queue, so it holds neither the main thread nor a thread
+    /// of Swift's cooperative pool.
+    nonisolated private static func runInBackground<Value: Sendable>(
+        _ work: @escaping @Sendable () throws -> Value
+    ) async throws -> Value {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(with: Result(catching: work))
+            }
+        }
+    }
+
+    // MARK: - Following the library
+
+    func libraryDidChange(_ change: LibraryChange, from old: Library, to new: Library) {
+        guard !isPreview else { return }
+        switch change {
+        case .opened(let newRoot):
+            startSession(at: newRoot)
+        case .updated, .deleted:
+            if isMovingLibrary {
+                changesDuringMove.append(DeferredFolderChange(change: change, old: old, new: new))
+            } else {
+                applyFolderChange(change, old: old, new: new)
+            }
+        case .added, .subjectsChanged:
+            break
+        }
+    }
+
+    /// Carries folders along after an edit, or trashes them after a deletion.
+    private func applyFolderChange(_ change: LibraryChange, old: Library, new: Library) {
+        switch change {
+        case .updated(let occurrence, _, let scope):
+            carryFolders(of: occurrence, scope: scope, old: old, new: new)
+        case .deleted(let occurrence, let scope):
+            trashFolders(of: occurrence, scope: scope, old: old, new: new)
+        case .opened, .added, .subjectsChanged:
+            break
+        }
+    }
+
+    /// Starts fresh for a newly opened library: a new `EventFolders` actor, an index scan and the folder
+    /// watcher. Nothing is written, except the sample files of a demo library.
+    private func startSession(at newRoot: URL) {
+        session += 1
+        let session = self.session
+        countTask?.cancel()
+        countTask = nil
+        pendingCounts = [:]
+        countingIDs = []
+        requested = [:]
+        requestOrder = []
+        isReindexing = false
+        needsAnotherReindex = false
+        for job in importJobs.values {
+            job.task.cancel()
+        }
+        importJobs = [:]
+        queuedSources = [:]
+        watcher?.stop()
+        watcher = nil
+        resolvedRootPath = nil
+
+        let folders = EventFolders(root: newRoot, fileSystem: LocalFileSystem())
+        self.folders = folders
+        root = newRoot
+        fileCounts = [:]
+        imports = [:]
+        changeToken += 1
+        startWatching(newRoot)
+        Task { [weak self] in
+            let resolved = await FilesController.prepare(folders, root: newRoot)
+            self?.didPrepare(resolvedPath: resolved, session: session)
+        }
+        if model.isDemo, demoFilesRoot != newRoot {
+            demoFilesRoot = newRoot
+            let library = model.library
+            let timeZone = model.timeZone
+            enqueueWork { [weak self] in
+                await DemoFiles.create(for: library, in: folders, timeZone: timeZone)
+                self?.filesChanged(session: session)
+            }
+        }
+    }
+
+    /// Builds the marker index and resolves the root's path, off the main actor.
+    nonisolated private static func prepare(_ folders: EventFolders, root: URL) async -> String {
+        await folders.reindex()
+        return FolderChangeFilter.resolvedPath(of: root)
+    }
+
+    private func didPrepare(resolvedPath: String, session: Int) {
+        guard session == self.session else { return }
+        resolvedRootPath = resolvedPath
+        filesChanged(session: session)
+    }
+
+    private func startWatching(_ watchedRoot: URL) {
+        let watcher = RootFolderWatcher(root: watchedRoot) { [weak self] change in
+            self?.folderChanged(change)
+        }
+        guard watcher.start() else {
+            logger.error("Could not watch the library folder for changes")
+            return
+        }
+        self.watcher = watcher
+    }
+
+    /// FSEvents saw changes: rescan the marker index if folders came, went or were renamed, then refresh.
+    private func folderChanged(_ change: RootFolderChange) {
+        guard !isMovingLibrary else { return }
+        switch FolderChangeFilter.impact(of: change, rootPath: resolvedRootPath) {
+        case .unrelated:
+            return
+        case .contents:
+            filesChanged(session: session)
+        case .structure:
+            reindex()
+        }
+    }
+
+    /// One rescan at a time; changes that arrive meanwhile get one more afterwards.
+    private func reindex() {
+        guard let folders else { return }
+        guard !isReindexing else {
+            needsAnotherReindex = true
+            return
+        }
+        isReindexing = true
+        let session = self.session
+        Task { [weak self] in
+            await folders.reindex()
+            self?.didReindex(session: session)
+        }
+    }
+
+    private func didReindex(session: Int) {
+        guard session == self.session else { return }
+        isReindexing = false
+        filesChanged(session: session)
+        if needsAnotherReindex {
+            needsAnotherReindex = false
+            reindex()
+        }
+    }
+
+    /// After an edit: renames and moves the edited event's folders so they match it again.
+    private func carryFolders(of occurrence: Occurrence, scope: SeriesEditing.Scope, old: Library, new: Library) {
+        guard let folders else { return }
+        let update = FolderUpdate(occurrence: occurrence, scope: scope, old: old, new: new, timeZone: model.timeZone)
+        let session = self.session
+        enqueueWork { [weak self] in
+            let report = await folders.carryFolders(update)
+            self?.folderWorkFinished(report, kind: .carry, session: session)
+        }
+    }
+
+    /// After a deletion the user confirmed: stops copies into the deleted occurrences, then puts their
+    /// folders in the Trash.
+    private func trashFolders(of occurrence: Occurrence, scope: SeriesEditing.Scope, old: Library, new: Library) {
+        guard let folders else { return }
+        for id in Array(importJobs.keys) where model.occurrence(id: id) == nil {
+            if var job = importJobs[id] {
+                job.isCancelled = true
+                importJobs[id] = job
+                job.task.cancel()
+            }
+            imports[id] = nil
+        }
+        for id in Array(queuedSources.keys) where model.occurrence(id: id) == nil {
+            queuedSources[id] = nil
+        }
+        let deletion = FolderDeletion(
+            occurrence: occurrence, scope: scope, old: old, new: new, timeZone: model.timeZone)
+        let session = self.session
+        enqueueWork { [weak self] in
+            let report = await folders.trashFolders(deletion)
+            self?.folderWorkFinished(report, kind: .trash, session: session)
+        }
+    }
+
+    private enum FolderWorkKind {
+        case carry
+        case trash
+    }
+
+    private func folderWorkFinished(_ report: EventFolderWorkReport, kind: FolderWorkKind, session: Int) {
+        guard session == self.session else { return }
+        for failure in report.failures {
+            let reason = String(describing: failure.error)
+            logger.error("Folder change failed for \(failure.title, privacy: .private): \(reason, privacy: .private)")
+        }
+        if let failure = report.failures.first {
+            switch kind {
+            case .carry:
+                lastError = FileMessages.couldNotRenameFolder(title: failure.title, error: failure.error)
+            case .trash:
+                lastError = FileMessages.couldNotTrashFolder(title: failure.title, error: failure.error)
+            }
+        }
+        if report.changed > 0 || !report.failures.isEmpty {
+            filesChanged(session: session)
+        }
+    }
+}
+
+/// A library change that arrived while the library was moving, kept until the move is over.
+private struct DeferredFolderChange {
+    var change: LibraryChange
+    var old: Library
+    var new: Library
+}

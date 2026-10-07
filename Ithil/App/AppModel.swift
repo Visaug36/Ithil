@@ -145,7 +145,11 @@ final class AppModel {
     }
 
     /// Whether the library can be changed right now.
-    var canEdit: Bool { state == .ready && !isReadOnly }
+    var canEdit: Bool { state == .ready && !isReadOnly && !isMovingLibrary }
+
+    /// Set by `FilesController` while it moves the library to another folder: no changes until the library
+    /// has reopened there, so no save lands in a folder that is being moved.
+    var isMovingLibrary = false
 
     // MARK: - Navigation
 
