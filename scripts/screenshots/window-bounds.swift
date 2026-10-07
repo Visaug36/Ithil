@@ -6,15 +6,18 @@ import Foundation
 let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
 let windows = (CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]]) ?? []
 
-// `window-bounds --list` prints every on-screen window, for debugging a failed capture.
+// `window-bounds --list` prints every window, on screen or not, for debugging a failed capture.
 if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--list" {
-    for window in windows {
+    let all = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]) ?? []
+    for window in all {
         let owner = window[kCGWindowOwnerName as String] as? String ?? "?"
         let pid = window[kCGWindowOwnerPID as String] as? Int32 ?? -1
         let layer = window[kCGWindowLayer as String] as? Int ?? -1
+        let name = window[kCGWindowName as String] as? String ?? ""
+        let onScreen = window[kCGWindowIsOnscreen as String] as? Bool ?? false
         let rect = (window[kCGWindowBounds as String] as? NSDictionary)
             .flatMap { CGRect(dictionaryRepresentation: $0 as CFDictionary) } ?? .zero
-        print("\(owner) pid=\(pid) layer=\(layer) \(rect)")
+        print("\(owner) pid=\(pid) layer=\(layer) onScreen=\(onScreen) name=\"\(name)\" \(rect)")
     }
     exit(0)
 }

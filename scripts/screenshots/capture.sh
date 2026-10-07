@@ -13,11 +13,19 @@ swiftc -O "$here/window-bounds.swift" -o build/window-bounds
 
 debug_dump() {
     local name="$1"
+    local pid="$2"
     echo "::group::Debug for $name"
-    build/window-bounds --list || true
+    build/window-bounds --list | grep -v -e "^Window Server" -e "^Dock" -e "^Control Center" || true
     screencapture -x "build/screenshot-logs/$name-screen.png" || true
     ls -la ~/Library/Logs/DiagnosticReports 2> /dev/null | tail -n 5 || true
     cat "build/screenshot-logs/$name.log" 2> /dev/null | tail -n 40 || true
+    if [[ -n "$pid" ]]; then
+        ps -o pid,stat,etime,command -p "$pid" || true
+        lsappinfo info "$pid" || true
+        sample "$pid" 2 -file "build/screenshot-logs/$name-sample.txt" > /dev/null 2>&1 || true
+        sed -n '1,/^Total number in stack/p' "build/screenshot-logs/$name-sample.txt" 2> /dev/null | head -n 120 || true
+    fi
+    log show --last 2m --style compact --predicate 'process == "Ithil"' 2> /dev/null | tail -n 60 || true
     echo "::endgroup::"
 }
 
@@ -39,7 +47,7 @@ shot() {
     done
     if [[ -z "$bounds" ]]; then
         echo "::error::No window for $name (pid ${pid:-none})"
-        debug_dump "$name"
+        debug_dump "$name" "$pid"
         pkill -x Ithil 2> /dev/null || true
         return 1
     fi
