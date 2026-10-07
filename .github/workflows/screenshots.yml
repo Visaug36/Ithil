@@ -50,9 +50,9 @@ jobs:
           displayplacer "id:$screen res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0" \
             || true
           sleep 2
-          resolution=$(system_profiler SPDisplaysDataType | grep -i resolution || true)
-          echo "$resolution"
-          [[ "$resolution" == *1920* ]]
+          current=$( (displayplacer list || true) | grep -e '<-- current mode' || true)
+          echo "$current"
+          [[ "$current" == *1920x1080* ]]
           # Overlay scroll bars, as with a trackpad (the runner has no input devices, so it shows legacy ones).
           defaults write -g AppleShowScrollBars -string WhenScrolling
 
