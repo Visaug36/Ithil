@@ -5,17 +5,23 @@ name: Screenshots
 
 on:
   workflow_dispatch:
-  # Also when the screenshot tooling changes on a working branch, so the images can be refreshed without
-  # dispatch rights. The commit it pushes doesn't trigger another run.
+  # Also when the app or the screenshot tooling changes on a working branch, so the images keep up with the
+  # UI. The commit it pushes doesn't trigger another run.
   push:
     branches:
       - "claude/**"
     paths:
+      - "Ithil/**"
       - "scripts/screenshots/**"
       - ".github/workflows/screenshots.yml"
 
 permissions:
   contents: write
+
+# A newer push makes an older run's images stale.
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   XCODE_MAJOR: "26"
@@ -27,6 +33,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history, so the commit step can rebase onto a branch that moved on.
+          fetch-depth: 0
 
       - name: Select Xcode
         run: |
@@ -80,4 +89,6 @@ jobs:
             exit 0
           fi
           git commit -m "Update README screenshots"
+          # The branch may have moved on while the shots were taken.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

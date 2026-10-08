@@ -6,6 +6,7 @@ import Testing
 /// outside the library root and that folders go to the Trash instead of being removed.
 private final class EventFoldersTestDisk: FileSystem, @unchecked Sendable {
     private let base = LocalFileSystem()
+    private let trash: TestTrash
     private let lock = NSLock()
     private var changedURLs: [URL] = []
     private var removedURLs: [URL] = []
@@ -17,8 +18,12 @@ private final class EventFoldersTestDisk: FileSystem, @unchecked Sendable {
     var changed: [URL] { locked { changedURLs } }
     var removed: [URL] { locked { removedURLs } }
     var trashed: [URL] { locked { trashedURLs } }
-    /// Where trashed items ended up in the Trash, so the test can delete them again.
+    /// Where trashed items ended up in the test's own Trash.
     var itemsInTrash: [URL] { locked { trashedItems } }
+
+    init(trash: TestTrash) {
+        self.trash = trash
+    }
 
     private func locked<Value>(_ body: () -> Value) -> Value {
         lock.lock()
@@ -73,13 +78,10 @@ private final class EventFoldersTestDisk: FileSystem, @unchecked Sendable {
 
     func trashItem(at url: URL) throws {
         record([url])
-        var resultingItem: NSURL?
-        try FileManager.default.trashItem(at: url, resultingItemURL: &resultingItem)
+        let item = try trash.trash(url)
         locked {
             trashedURLs.append(url)
-            if let resultingItem {
-                trashedItems.append(resultingItem as URL)
-            }
+            trashedItems.append(item)
         }
     }
 }
@@ -90,7 +92,7 @@ private struct EventFoldersSandbox {
     let base: URL
     let root: URL
     let outside: URL
-    let disk = EventFoldersTestDisk()
+    let disk: EventFoldersTestDisk
     let folders: EventFolders
 
     init() throws {
@@ -100,14 +102,12 @@ private struct EventFoldersSandbox {
         outside = base.appending(component: "Outside", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: nil)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true, attributes: nil)
+        disk = EventFoldersTestDisk(trash: TestTrash(in: base))
         folders = EventFolders(root: root, fileSystem: disk)
     }
 
-    /// Deletes the temporary folder, and whatever a test moved to the Trash.
+    /// Deletes the temporary folder, the test's Trash included.
     func remove() {
-        for item in disk.itemsInTrash {
-            try? FileManager.default.removeItem(at: item)
-        }
         try? FileManager.default.removeItem(at: base)
     }
 

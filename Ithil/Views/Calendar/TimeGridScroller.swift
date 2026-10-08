@@ -75,9 +75,16 @@ final class TimeGridScrollerView: NSView {
         let clip = scrollView.contentView
         // Until the grid is laid out at full height, a scroll would be cut short.
         guard document.frame.height >= TimeGridGeometry.gridHeight, clip.bounds.height > 0 else { return false }
-        let scrollable = max(0, document.frame.height - clip.bounds.height)
-        let offset = min(max(0, request.offset), scrollable)
-        let y = document.isFlipped ? offset : scrollable - offset
+        // SwiftUI's document view is flipped (y grows downwards); anything else is left alone.
+        guard document.isFlipped else {
+            appliedSerial = request.serial
+            return true
+        }
+        // The content starts under the toolbar: scrolled to the top, the clip view is at minus its top inset.
+        let insets = clip.contentInsets
+        let top = -insets.top
+        let bottom = max(top, document.frame.height - clip.bounds.height + insets.bottom)
+        let y = min(max(top, request.offset - insets.top), bottom)
         clip.scroll(to: NSPoint(x: clip.bounds.origin.x, y: y))
         scrollView.reflectScrolledClipView(clip)
         appliedSerial = request.serial
