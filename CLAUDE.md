@@ -105,6 +105,7 @@ Keep this section current. Newest first.
 - **Time grid scrolling** goes through `TimeGridScroller` (sets the enclosing `NSScrollView`'s position). `ScrollViewReader` never found the hour targets inside the lazy, pinned-header stack, so the grid always opened at midnight.
 - **Phase 6 review:** an adversarial review workflow (5 dimensions, skeptic verification) found no code bugs; its confirmed doc fixes were applied. Quick Add with `-demoNow` still reads "thursday" against the real clock (NSDataDetector has no reference date), so the Screenshots workflow sets the runner's clock to the demo's.
 - **Version:** `MARKETING_VERSION` is 1.0.0 and CHANGELOG has `## [1.0.0] - 2026-10-08`, the release date. For each release: add its CHANGELOG section, merge, then push the `vX.Y.Z` tag on `main`.
+- **Download clarity (2026-10-08):** the user downloaded GitHub's automatic "Source code (zip)" instead of the app. Release notes now open with "download `Ithil-X.Y.Z.zip`, not Source code", and the README's Download steps say the same. (v1.0.0's own notes predate this.)
 - **CI archives like a release:** the Release step runs `xcodebuild archive` and `codesign --verify` as `release.yml` does, so a broken release build shows up before a tag is pushed.
 
 ### Open items

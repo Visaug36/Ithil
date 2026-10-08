@@ -47,9 +47,10 @@
 
 ## Download
 
-1. Download **Ithil-x.y.z.zip** from the [latest release](https://github.com/Visaug36/Ithil/releases/latest) and
-   double-click it to unzip.
-2. Drag **Ithil** to your **Applications** folder.
+1. Download **Ithil-x.y.z.zip** from the [latest release](https://github.com/Visaug36/Ithil/releases/latest), the
+   first file under **Assets**. (Not "Source code": that's the project's code, which you only need to build Ithil
+   yourself.)
+2. Double-click the zip to unzip it, and drag **Ithil** (the moon icon) to your **Applications** folder.
 3. Open it. Ithil isn't notarized by Apple (that needs a paid developer account), so the first time macOS says it
    can't verify the developer:
    - Open **System Settings → Privacy & Security**.
