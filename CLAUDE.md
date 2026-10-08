@@ -116,7 +116,7 @@ Keep this section current. Newest first.
 - Merges made through GitHub carry the account's name and email. The user can turn on "Keep my email addresses private" in GitHub's email settings to use the noreply address for future ones.
 
 ### Status
-- 2026-10-07: **Phase 6 (release prep)**: README with real screenshots, String Catalog check in CI, version 1.0.0, screenshot workflow, time grid scroll fix. Not tagged; waiting for the user's go-ahead to release.
+- 2026-10-08: **Phase 6 merged** (https://github.com/Visaug36/Ithil/pull/7): README with real screenshots, String Catalog check in CI, version 1.0.0, Screenshots workflow, time grid scroll fix, file tests in their own Trash. CI green: 326 tests, zero warnings, universal build. v1.0.0 is ready but not tagged: waiting for the user's go-ahead (then update the CHANGELOG date, tag `v1.0.0`, and the release workflow publishes it).
 - 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
 - 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).
 - 2026-10-06:
