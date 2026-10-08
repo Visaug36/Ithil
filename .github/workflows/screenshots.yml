@@ -65,8 +65,25 @@ jobs:
           # Overlay scroll bars, as with a trackpad (the runner has no input devices, so it shows legacy ones).
           defaults write -g AppleShowScrollBars -string WhenScrolling
 
+      - name: Clock
+        # Quick Add reads "thursday" against the system clock (NSDataDetector has no reference date), so the
+        # runner's clock goes to the demo's pinned "now" (Tuesday 6 October 2026, 13:50) while the shots run.
+        run: |
+          sudo systemsetup -setusingnetworktime off > /dev/null 2>&1 || true
+          sudo date 1006135026
+          date
+
       - name: Capture
-        run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
+        run: |
+          scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
+          date
+
+      - name: Restore the clock
+        if: always()
+        run: |
+          sudo systemsetup -setusingnetworktime on > /dev/null 2>&1 || true
+          sudo sntp -sS time.apple.com > /dev/null 2>&1 || true
+          date
 
       - name: Upload
         if: always()
