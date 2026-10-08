@@ -79,6 +79,7 @@ You're building Ithil, a native macOS calendar for students, as a public open-so
 Keep this section current. Newest first.
 
 ### Decisions
+- **Release (user, 2026-10-08):** publish v1.0.0 now, ad-hoc signed and not notarized.
 - **Working mode (user, 2026-10-06):** "do everything yourself". Claude merges each finished phase into `main` itself (PR from `claude/laughing-ride-8gg5eo`, merge commit, after CI is green) and moves on to the next phase without waiting for the user to test. Still: never tag or publish v1.0.0 until the user says so.
 - **License / identity:** MIT, copyright "Visaug36" (the user didn't mind which name). Bundle ID `io.github.visaug36.Ithil`. Repo: https://github.com/Visaug36/Ithil, public from the start.
 - **Design source:** the user sent the design as a PDF instead of the zip. It lives only in `design-reference/Ithil.pdf` (git-ignored, along with renders). Containers are ephemeral, so if it's missing, ask the user to upload it again. `docs/DESIGN.md` must stay complete enough to build every screen without it.
@@ -102,7 +103,8 @@ Keep this section current. Newest first.
 - **README screenshots** come from the Screenshots workflow (`scripts/screenshots/`): `-demo` scenes (`-demoAppearance`, `-demoSpan`, `-demoScene details|quickAdd`, `-demoWindowSize`) at 1280×800, in en_GB like the design, on a runner switched to 1920×1080 with displayplacer. It commits `docs/images/*.png` to the branch it ran on, so pull before pushing after a run. On the runner SwiftUI doesn't open the main window at launch, so the script reopens the app (like a Dock click).
 - **Time grid scrolling** goes through `TimeGridScroller` (sets the enclosing `NSScrollView`'s position). `ScrollViewReader` never found the hour targets inside the lazy, pinned-header stack, so the grid always opened at midnight.
 - **Phase 6 review:** an adversarial review workflow (5 dimensions, skeptic verification) found no code bugs; its confirmed doc fixes were applied. Quick Add with `-demoNow` still reads "thursday" against the real clock (NSDataDetector has no reference date), so the Screenshots workflow sets the runner's clock to the demo's.
-- **Version:** `MARKETING_VERSION` is 1.0.0 and CHANGELOG has `## [1.0.0] - 2026-10-07`. Update that date when the user says to tag.
+- **Version:** `MARKETING_VERSION` is 1.0.0 and CHANGELOG has `## [1.0.0] - 2026-10-08`, the release date. For each release: add its CHANGELOG section, merge, then push the `vX.Y.Z` tag on `main`.
+- **CI archives like a release:** the Release step runs `xcodebuild archive` and `codesign --verify` as `release.yml` does, so a broken release build shows up before a tag is pushed.
 
 ### Open items
 - Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file). The legacy AppIcon set still works.
@@ -116,7 +118,8 @@ Keep this section current. Newest first.
 - Merges made through GitHub carry the account's name and email. The user can turn on "Keep my email addresses private" in GitHub's email settings to use the noreply address for future ones.
 
 ### Status
-- 2026-10-07: **Phase 6 (release prep)**: README with real screenshots, String Catalog check in CI, version 1.0.0, screenshot workflow, time grid scroll fix. Not tagged; waiting for the user's go-ahead to release.
+- 2026-10-08: **v1.0.0 release**: the user said to publish. CHANGELOG dated 2026-10-08; the tag goes on `main` once this is merged.
+- 2026-10-08: **Phase 6 merged** (https://github.com/Visaug36/Ithil/pull/7): README with real screenshots, String Catalog check in CI, version 1.0.0, Screenshots workflow, time grid scroll fix, file tests in their own Trash. CI green: 326 tests, zero warnings, universal build. v1.0.0 is ready but not tagged: waiting for the user's go-ahead (then update the CHANGELOG date, tag `v1.0.0`, and the release workflow publishes it).
 - 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
 - 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).
 - 2026-10-06:

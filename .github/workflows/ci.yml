@@ -80,18 +80,24 @@ jobs:
               walk(root, [])
           '
 
-      - name: Build Release (universal)
+      - name: Archive Release (universal, as the release workflow does)
         run: |
           set -o pipefail
-          xcodebuild build \
+          xcodebuild archive \
             -project Ithil.xcodeproj -scheme Ithil -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath build/DerivedData \
+            -archivePath build/Ithil.xcarchive \
             ONLY_ACTIVE_ARCH=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
             2>&1 | tee build/release.log
-          archs=$(lipo -archs build/DerivedData/Build/Products/Release/Ithil.app/Contents/MacOS/Ithil)
+          app=build/Ithil.xcarchive/Products/Applications/Ithil.app
+          archs=$(lipo -archs "$app/Contents/MacOS/Ithil")
           echo "Architectures: $archs"
           [[ "$archs" == *arm64* && "$archs" == *x86_64* ]]
+          codesign --verify --deep --strict --verbose=2 "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" build/Ithil.zip
+          ls -l build/Ithil.zip
 
       - name: Check for warnings
         run: scripts/check-warnings.sh build/test.log build/release.log
