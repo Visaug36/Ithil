@@ -16,7 +16,7 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Building
 
-You need macOS 14 or later and Xcode 26.
+Ithil runs on macOS 14 or later. To build it you need Xcode 26, which runs on macOS 15.6 or later.
 
 ```sh
 git clone https://github.com/Visaug36/Ithil.git

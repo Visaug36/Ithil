@@ -6,8 +6,8 @@ import SwiftUI
 /// - A header row ("Mon 5", today in amber; the long date in Day view) and, when a visible day has
 ///   all-day events, the all-day strip. Both stay pinned while the hours scroll under them.
 /// - 24 hour rows with the time gutter, the event blocks laid out by `DayLayout`, and the now line while
-///   today is on screen. The grid opens an hour before now when today is visible, otherwise at 08:00, and
-///   again whenever the days change.
+///   today is on screen. The grid opens at 08:00; with today on screen, an hour before now when that is
+///   earlier, or six hours before now from 16:00. It scrolls there again whenever the days change.
 /// - A Day view with nothing on it shows the "A quiet day." empty state instead of the grid.
 /// - ← / → step by the span while the calendar has keyboard focus, and Delete deletes the selected event
 ///   (after asking). Blocks can be dragged to move them and resized at their bottom edge (`TimeGridView`).

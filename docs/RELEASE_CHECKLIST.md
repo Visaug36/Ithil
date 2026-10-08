@@ -72,8 +72,11 @@ Do this whole pass on a real Mac before tagging a release. Use a **fresh macOS u
 
 - [ ] Quit Ithil and corrupt `<root>/.ithil/events.json` (e.g. cut it in half). Relaunch: Ithil recovers from the
       newest good backup, tells you, and keeps the damaged file as `events.corrupt-….json`.
-- [ ] Move or rename the Ithil folder while Ithil is quit, then relaunch: you get "Locate or choose folder", never
-      an empty calendar. Unplug the drive the folder lives on: same.
+- [ ] Rename the Ithil folder, or move it elsewhere on the same drive, while Ithil is quit, then relaunch: Ithil
+      follows it and opens it at its new place.
+- [ ] Delete the Ithil folder (or move it to the Trash or to another drive) while Ithil is quit, then relaunch: you
+      get "Ithil can't find its folder" with **Locate Folder…**, never an empty calendar. Unplug the drive the
+      folder lives on: same.
 - [ ] Copy the whole root folder to another Mac and open it there: everything is back.
 
 ## 7. Menu bar, settings, system integration

@@ -77,11 +77,11 @@ Ithil/
 │   ├── events.json                 your events and subjects (JSON, schema-versioned)
 │   └── backups/                    rolling backups of events.json
 ├── 2026-10-06/
-│   ├── 14.00 Physics Lecture/      one folder per event, created when its first file arrives
-│   │   ├── Lecture 7 – Rotational Motion.pdf
-│   │   ├── Problem Set 4.pdf
-│   │   └── notes.md
-│   └── 17.00 Library – essay draft/
+│   ├── 09.30 Literature Seminar/
+│   └── 14.00 Physics Lecture/      one folder per event, created when its first file arrives
+│       ├── Lecture 7 – Rotational Motion.pdf
+│       ├── Problem Set 4.pdf
+│       └── notes.md
 └── 2026-10-14/
     └── Mara's birthday/            all-day events have no time in the name
 ```
@@ -144,7 +144,9 @@ Your Ithil folder with your events and files stays where it is until you delete 
 **Notifications don't show up.**
 Open **System Settings → Notifications → Ithil** and make sure **Allow notifications** is on. Ithil's Settings →
 General shows the status and has a button that takes you there. Also check that the event has an alert (the bell
-in its details) and that Focus isn't hiding notifications.
+in its details) and that Focus isn't hiding notifications. Each time it runs, Ithil schedules the alerts for the
+next two weeks (up to 48), so if it hasn't been open for longer than that, open it once, or turn on **Launch at
+login** in Settings → General.
 
 **Ithil says it can't find its folder.**
 The folder was moved, renamed, deleted, or it's on a drive that isn't connected. Plug the drive back in, or click
@@ -165,7 +167,7 @@ Mac at a time.
 
 ## Build from source
 
-You need macOS 14 or later and Xcode 26.
+Ithil runs on macOS 14 or later. To build it you need Xcode 26, which runs on macOS 15.6 or later.
 
 ```sh
 git clone https://github.com/Visaug36/Ithil.git
@@ -174,8 +176,8 @@ open Ithil.xcodeproj        # then ⌘R to run, ⌘U to test
 scripts/install.sh          # or build Release and install it in /Applications
 ```
 
-To try Ithil with sample data that never touches your own calendar, run it with the `-demo` launch argument
-(Product → Scheme → Edit Scheme… → Arguments). Add `-demoNow 2026-10-06T13:50` to pin the clock.
+To try Ithil with sample data that never touches your own calendar, turn on the `-demo` launch argument
+(Product → Scheme → Edit Scheme… → Run → Arguments), and `-demoNow 2026-10-06T13:50` to pin the clock.
 
 There are no dependencies. The logic lives in `IthilCore` with Swift Testing tests. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DESIGN.md](docs/DESIGN.md).
