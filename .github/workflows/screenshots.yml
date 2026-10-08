@@ -100,6 +100,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/screenshots/keep-unchanged.sh docs/images
           git add docs/images/*.png
           if git diff --cached --quiet; then
             echo "Screenshots unchanged."
