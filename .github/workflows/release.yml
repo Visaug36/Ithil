@@ -134,11 +134,16 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
+          {
+            echo "**To install, download \`Ithil-$version.zip\` below** and unzip it to get **Ithil.app**, then drag it"
+            echo "to Applications. (\"Source code\" is the project's code, only needed to build Ithil yourself.)"
+            echo
+          } > build/release/notes.md
           awk -v v="$version" '
             $0 ~ "^## \\[" v "\\]" { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
-          ' CHANGELOG.md > build/release/notes.md
+          ' CHANGELOG.md >> build/release/notes.md
           if [[ "${{ steps.signing.outputs.mode }}" != "developer-id" ]]; then
             {
               echo

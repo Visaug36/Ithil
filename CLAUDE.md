@@ -80,7 +80,7 @@ Keep this section current. Newest first.
 
 ### Decisions
 - **Release (user, 2026-10-08):** publish v1.0.0 now, ad-hoc signed and not notarized.
-- **Tags come from the user:** this environment's proxy refuses tag pushes (403, policy), and the GitHub connector can't create tags or releases. The user publishes a release with a new `vX.Y.Z` tag on `main` from the Releases page (or pushes the tag); `release.yml` then attaches the build and the CHANGELOG notes to that release.
+- **Tags come from the user:** this environment's proxy refuses tag pushes (403, policy), and the GitHub connector can't create tags or releases. The user publishes a release with a new `vX.Y.Z` tag on `main` from the Releases page (or pushes the tag); `release.yml` then attaches the build and the CHANGELOG notes to that release. Worked for v1.0.0.
 - **Working mode (user, 2026-10-06):** "do everything yourself". Claude merges each finished phase into `main` itself (PR from `claude/laughing-ride-8gg5eo`, merge commit, after CI is green) and moves on to the next phase without waiting for the user to test. Still: never tag or publish v1.0.0 until the user says so.
 - **License / identity:** MIT, copyright "Visaug36" (the user didn't mind which name). Bundle ID `io.github.visaug36.Ithil`. Repo: https://github.com/Visaug36/Ithil, public from the start.
 - **Design source:** the user sent the design as a PDF instead of the zip. It lives only in `design-reference/Ithil.pdf` (git-ignored, along with renders). Containers are ephemeral, so if it's missing, ask the user to upload it again. `docs/DESIGN.md` must stay complete enough to build every screen without it.
@@ -105,6 +105,7 @@ Keep this section current. Newest first.
 - **Time grid scrolling** goes through `TimeGridScroller` (sets the enclosing `NSScrollView`'s position). `ScrollViewReader` never found the hour targets inside the lazy, pinned-header stack, so the grid always opened at midnight.
 - **Phase 6 review:** an adversarial review workflow (5 dimensions, skeptic verification) found no code bugs; its confirmed doc fixes were applied. Quick Add with `-demoNow` still reads "thursday" against the real clock (NSDataDetector has no reference date), so the Screenshots workflow sets the runner's clock to the demo's.
 - **Version:** `MARKETING_VERSION` is 1.0.0 and CHANGELOG has `## [1.0.0] - 2026-10-08`, the release date. For each release: add its CHANGELOG section, merge, then push the `vX.Y.Z` tag on `main`.
+- **Download clarity (2026-10-08):** the user downloaded GitHub's automatic "Source code (zip)" instead of the app. Release notes now open with "download `Ithil-X.Y.Z.zip`, not Source code", and the README's Download steps say the same. (v1.0.0's own notes predate this.)
 - **CI archives like a release:** the Release step runs `xcodebuild archive` and `codesign --verify` as `release.yml` does, so a broken release build shows up before a tag is pushed.
 
 ### Open items
@@ -119,6 +120,7 @@ Keep this section current. Newest first.
 - Merges made through GitHub carry the account's name and email. The user can turn on "Keep my email addresses private" in GitHub's email settings to use the noreply address for future ones.
 
 ### Status
+- 2026-10-08: **v1.0.0 published**: https://github.com/Visaug36/Ithil/releases/tag/v1.0.0. The user made the tag from the Releases page; the Release workflow attached `Ithil-1.0.0.zip` (universal, ad-hoc signed, version 1.0.0, macOS 14+) and its SHA-256 (checked), with the CHANGELOG notes. Both triggers fired and the concurrency group cancelled the duplicate run.
 - 2026-10-08: **v1.0.0 release**: the user said to publish. Merged in https://github.com/Visaug36/Ithil/pull/8 (CHANGELOG dated 2026-10-08, CI archives like a release). Pushing the tag from here was refused (403), so the user makes the `v1.0.0` tag from the Releases page.
 - 2026-10-08: **Phase 6 merged** (https://github.com/Visaug36/Ithil/pull/7): README with real screenshots, String Catalog check in CI, version 1.0.0, Screenshots workflow, time grid scroll fix, file tests in their own Trash. CI green: 326 tests, zero warnings, universal build. v1.0.0 is ready but not tagged: waiting for the user's go-ahead (then update the CHANGELOG date, tag `v1.0.0`, and the release workflow publishes it).
 - 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
