@@ -6,8 +6,8 @@ import SwiftUI
 /// - A header row ("Mon 5", today in amber; the long date in Day view) and, when a visible day has
 ///   all-day events, the all-day strip. Both stay pinned while the hours scroll under them.
 /// - 24 hour rows with the time gutter, the event blocks laid out by `DayLayout`, and the now line while
-///   today is on screen. The grid opens an hour before now when today is visible, otherwise at 08:00, and
-///   again whenever the days change.
+///   today is on screen. The grid opens at 08:00; with today on screen, an hour before now when that is
+///   earlier, or six hours before now from 16:00. It scrolls there again whenever the days change.
 /// - A Day view with nothing on it shows the "A quiet day." empty state instead of the grid.
 /// - ← / → step by the span while the calendar has keyboard focus, and Delete deletes the selected event
 ///   (after asking). Blocks can be dragged to move them and resized at their bottom edge (`TimeGridView`).
@@ -64,60 +64,57 @@ private struct GridScrollView: View {
     @Environment(AppModel.self) private var model
     let days: [CalendarDate]
     let onBackgroundClick: () -> Void
+    @State private var scrollRequest: TimeGridScrollRequest? = nil
 
     var body: some View {
         let maxRows: Int? = days.count > 1 ? TimeGridGeometry.maxAllDayRows : nil
         let allDay = AllDayStripLayout(days: days, occurrences: model.occurrences(in: days), maxRows: maxRows)
-        let anchorOffset = Metrics.weekHeaderHeight + allDay.height + TimeGridGeometry.verticalInset
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        timeGrid(anchorOffset: anchorOffset, proxy: proxy)
-                    } header: {
-                        GridHeader(days: days, allDay: allDay)
-                    }
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    TimeGridView(days: days, onBackgroundClick: onBackgroundClick)
+                } header: {
+                    GridHeader(days: days, allDay: allDay)
                 }
             }
-            .onChange(of: days) {
-                scrollToStart(proxy)
+            .background(alignment: .topLeading) {
+                TimeGridScroller(request: scrollRequest)
+                    .frame(width: 1, height: 1)
+                    .accessibilityHidden(true)
             }
-            .onChange(of: model.pendingEditorOccurrenceID) { _, pending in
-                if let hour = revealHour(for: pending) {
-                    scroll(proxy, toHour: hour)
-                }
+        }
+        .onAppear {
+            scrollToStart()
+        }
+        .onChange(of: days) {
+            scrollToStart()
+        }
+        .onChange(of: model.pendingEditorOccurrenceID) { _, pending in
+            if let hour = revealHour(for: pending) {
+                scroll(toHour: hour)
             }
         }
     }
 
-    /// The grid scrolls to its starting hour once it is in the scroll view, so its scroll targets exist.
-    private func timeGrid(anchorOffset: CGFloat, proxy: ScrollViewProxy) -> some View {
-        TimeGridView(days: days, scrollAnchorOffset: anchorOffset, onBackgroundClick: onBackgroundClick)
-            .onAppear {
-                scrollToStart(proxy)
-            }
-    }
-
     /// An hour before the event whose editor Quick Add's ⌘↩ is about to open, so its popover points at a
-    /// block on screen; otherwise an hour before now when today is on screen, otherwise 08:00.
-    private func scrollToStart(_ proxy: ScrollViewProxy) {
+    /// block on screen. Otherwise 08:00, the start of a student's day, unless today is on screen and now is
+    /// earlier (then an hour before now) or late in the evening (then six hours before now).
+    private func scrollToStart() {
         var hour = 8
         if let revealed = revealHour(for: model.pendingEditorOccurrenceID) {
             hour = revealed
         } else if days.contains(model.today) {
-            hour = max(0, model.math.minutesOfDay(model.now) / 60 - 1)
+            let nowHour = model.math.minutesOfDay(model.now) / 60
+            hour = nowHour < 16 ? max(0, min(8, nowHour - 1)) : nowHour - 6
         }
-        scroll(proxy, toHour: hour)
+        scroll(toHour: hour)
     }
 
-    /// Scrolls now, and once more on the next turn of the run loop in case the first layout (a new set of
-    /// days, a taller all-day strip) wasn't done yet. Both use the same hour, worked out up front.
-    private func scroll(_ proxy: ScrollViewProxy, toHour hour: Int) {
-        let target = TimeGridHourID(hour: hour)
-        proxy.scrollTo(target, anchor: .top)
-        Task { @MainActor in
-            proxy.scrollTo(target, anchor: .top)
-        }
+    /// Puts the hour's line just below the pinned header: the header and the grid's top inset sit above the
+    /// grid in the scroll content, and stay on screen as the header is pinned.
+    private func scroll(toHour hour: Int) {
+        let serial = (scrollRequest?.serial ?? 0) + 1
+        scrollRequest = TimeGridScrollRequest(offset: TimeGridGeometry.y(forHour: hour), serial: serial)
     }
 
     /// The hour to scroll to so a timed occurrence starting on one of these days is in view.

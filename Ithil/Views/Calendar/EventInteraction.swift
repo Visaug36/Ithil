@@ -69,10 +69,14 @@ private struct EventInteractionModifier: ViewModifier {
             }
             .onAppear {
                 openPendingEditor()
+                openPendingDetails()
                 takeFocusIfClaimed()
             }
             .onChange(of: model.pendingEditorOccurrenceID) {
                 openPendingEditor()
+            }
+            .onChange(of: model.pendingDetailsOccurrenceID) {
+                openPendingDetails()
             }
     }
 
@@ -113,6 +117,17 @@ private struct EventInteractionModifier: ViewModifier {
         guard let claimsFocus, claimsFocus() else { return }
         Task { @MainActor in
             isFocused = true
+        }
+    }
+
+    /// The details a `-demo` screenshot scene asked for, presented once the block is in the window.
+    private func openPendingDetails() {
+        let id = occurrence.id
+        guard handlesPendingEditor, model.pendingDetailsOccurrenceID == id else { return }
+        Task { @MainActor in
+            guard model.pendingDetailsOccurrenceID == id else { return }
+            model.pendingDetailsOccurrenceID = nil
+            popover = .details
         }
     }
 

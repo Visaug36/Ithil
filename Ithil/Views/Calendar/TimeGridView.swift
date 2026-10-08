@@ -1,11 +1,6 @@
 import IthilCore
 import SwiftUI
 
-/// The scroll target for an hour of the time grid.
-struct TimeGridHourID: Hashable {
-    var hour: Int
-}
-
 /// The scrolling part of the Day and Week views: the time gutter, the hour lines and day separators, one
 /// column of event blocks per day, and the now indicator. No stars or glows here: the grid stays plain.
 ///
@@ -14,9 +9,6 @@ struct TimeGridHourID: Hashable {
 /// Event Only" / "All Future Events" before it moves, and Cancel puts it back.
 struct TimeGridView: View {
     let days: [CalendarDate]
-    /// How far above each hour line its scroll target sits: the pinned header's height plus the grid's
-    /// top inset, so scrolling to an hour puts its line just below the header.
-    let scrollAnchorOffset: CGFloat
     let onBackgroundClick: () -> Void
     @State private var dragState = TimeGridDragState()
 
@@ -37,7 +29,6 @@ struct TimeGridView: View {
                 }
                 TimeGridDragPreviewView(state: dragState, columnWidth: columnWidth)
                 TimeGridNowIndicator(days: days, columnWidth: columnWidth)
-                TimeGridScrollAnchors(offset: scrollAnchorOffset)
             }
         }
         .frame(height: TimeGridGeometry.gridHeight)
@@ -109,24 +100,6 @@ private struct TimeGridHourGutter: View {
         let minute = model.math.minutesOfDay(model.now)
         let nearestHour = (minute + 30) / 60
         return abs(nearestHour * 60 - minute) < 15 ? nearestHour : nil
-    }
-}
-
-/// Invisible scroll targets, one per hour, `offset` above each hour line (see `TimeGridView`).
-private struct TimeGridScrollAnchors: View {
-    let offset: CGFloat
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(0..<24, id: \.self) { hour in
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .id(TimeGridHourID(hour: hour))
-                    .position(x: 0.5, y: TimeGridGeometry.y(forHour: hour) - offset + 0.5)
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 

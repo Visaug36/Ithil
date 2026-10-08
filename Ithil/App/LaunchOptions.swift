@@ -10,11 +10,14 @@ private let logger = Logger(subsystem: "io.github.visaug36.Ithil", category: "La
 ///   user's own folder, bookmark and settings are never read or written.
 /// - `-demoNow 2026-10-06T13:50` (local time) additionally pins the clock, for screenshots. It only takes
 ///   effect together with `-demo`, so a stray argument can never freeze the clock on real data (backups
-///   and `savedAt` stamps depend on it).
+///   and `savedAt` stamps depend on it). Quick Add still reads relative words ("thursday") against the
+///   real clock, as `NSDataDetector` has no reference date.
 struct LaunchOptions: Sendable {
     var isDemo: Bool
     /// The pinned "now" from `-demoNow`, if any.
     var pinnedNow: Date?
+    /// The screenshot scene from `-demoAppearance`, `-demoSpan`, `-demoScene` and `-demoWindowSize`.
+    var demoScene = DemoScene()
 
     /// The options of this process.
     static var current: LaunchOptions {
@@ -45,7 +48,11 @@ struct LaunchOptions: Sendable {
             logger.notice("Ignoring -demoNow without -demo")
             pinnedNow = nil
         }
-        return LaunchOptions(isDemo: isDemo, pinnedNow: pinnedNow)
+        var options = LaunchOptions(isDemo: isDemo, pinnedNow: pinnedNow)
+        if isDemo {
+            options.demoScene = DemoScene.parse(arguments)
+        }
+        return options
     }
 
     /// Parses `yyyy-MM-dd'T'HH:mm` as a wall-clock time in `timeZone`. Nil for anything else.

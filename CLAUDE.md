@@ -96,9 +96,13 @@ Keep this section current. Newest first.
   - Quick Add with no date means today, all day; "due friday" keeps "due" in the title.
   - Deleting a series' future events moves only those occurrences' folders to the Trash.
   - Edits carry folders along and never trash them.
-- **Strings:** `xcodebuild` does not sync the String Catalog, so `Localizable.xcstrings` is kept up to date by hand or script. A CI check with `xcstringstool` is planned for Phase 5.
+- **Strings:** `xcodebuild` does not sync the String Catalog, so `Localizable.xcstrings` is kept up to date by hand or script. CI's `scripts/check-strings.sh` runs `xcstringstool sync` on a copy and fails when code uses a string the catalog lacks.
 - **Dependabot PRs** for Actions are taken over on the working branch (checkout/upload-artifact are already on v7).
 - **Demo mode** never schedules real notifications and never touches the real bookmark or settings. `-demoNow` only works together with `-demo`.
+- **README screenshots** come from the Screenshots workflow (`scripts/screenshots/`): `-demo` scenes (`-demoAppearance`, `-demoSpan`, `-demoScene details|quickAdd`, `-demoWindowSize`) at 1280×800, in en_GB like the design, on a runner switched to 1920×1080 with displayplacer. It commits `docs/images/*.png` to the branch it ran on, so pull before pushing after a run. On the runner SwiftUI doesn't open the main window at launch, so the script reopens the app (like a Dock click).
+- **Time grid scrolling** goes through `TimeGridScroller` (sets the enclosing `NSScrollView`'s position). `ScrollViewReader` never found the hour targets inside the lazy, pinned-header stack, so the grid always opened at midnight.
+- **Phase 6 review:** an adversarial review workflow (5 dimensions, skeptic verification) found no code bugs; its confirmed doc fixes were applied. Quick Add with `-demoNow` still reads "thursday" against the real clock (NSDataDetector has no reference date), so the Screenshots workflow sets the runner's clock to the demo's.
+- **Version:** `MARKETING_VERSION` is 1.0.0 and CHANGELOG has `## [1.0.0] - 2026-10-07`. Update that date when the user says to tag.
 
 ### Open items
 - Liquid Glass app icon for macOS 26 (an Icon Composer `.icon` file). The legacy AppIcon set still works.
@@ -107,8 +111,12 @@ Keep this section current. Newest first.
   - Do click, double-click and drop still work together with drag-to-move and the resize handle?
   - Do the Increase Contrast colors apply when Night or Dawn is forced?
   - Does ⌘F reach Ithil's Find… item?
+  - Does launching Ithil open its main window? On the CI runner it doesn't until the app is reopened.
+  - Does the time grid open at 08:00 (with today on screen: an hour before now before 09:00, six hours before now from 16:00), and does Quick Add's ⌘↩ scroll to the new event?
+- Merges made through GitHub carry the account's name and email. The user can turn on "Keep my email addresses private" in GitHub's email settings to use the noreply address for future ones.
 
 ### Status
+- 2026-10-07: **Phase 6 (release prep)**: README with real screenshots, String Catalog check in CI, version 1.0.0, screenshot workflow, time grid scroll fix. Not tagged; waiting for the user's go-ahead to release.
 - 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
 - 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).
 - 2026-10-06:

@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-07
+
+The first release.
+
 ### Added
 
 - Week, Day and Month views with a sidebar (mini month, Up next, subject toggles) and search across titles,
@@ -36,3 +40,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stronger colors when Increase Contrast is on, in both Night and Dawn.
 - A Liquid Glass edge on the Quick Add panel on macOS 26 and later.
 - A `-demo` launch argument with sample data in a temporary folder.
+
+[Unreleased]: https://github.com/Visaug36/Ithil/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Visaug36/Ithil/releases/tag/v1.0.0

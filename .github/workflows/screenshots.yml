@@ -5,9 +5,23 @@ name: Screenshots
 
 on:
   workflow_dispatch:
+  # Also when the app or the screenshot tooling changes on a working branch, so the images keep up with the
+  # UI. The commit it pushes doesn't trigger another run.
+  push:
+    branches:
+      - "claude/**"
+    paths:
+      - "Ithil/**"
+      - "scripts/screenshots/**"
+      - ".github/workflows/screenshots.yml"
 
 permissions:
   contents: write
+
+# A newer push makes an older run's images stale.
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   XCODE_MAJOR: "26"
@@ -19,6 +33,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history, so the commit step can rebase onto a branch that moved on.
+          fetch-depth: 0
 
       - name: Select Xcode
         run: |
@@ -32,24 +49,64 @@ jobs:
           xcodebuild build -project Ithil.xcodeproj -scheme Ithil -configuration Release \
             -destination 'platform=macOS' -derivedDataPath build/DerivedData -quiet
 
+      - name: Display
+        # The runner's screen is 1024x768, too small for a 1280x800 window.
+        run: |
+          set -euo pipefail
+          brew install displayplacer > /dev/null
+          list=$(displayplacer list || true)
+          screen=$(awk '/^Persistent screen id:/ { print $4 }' <<< "$list" | head -n 1)
+          displayplacer "id:$screen res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0" \
+            || true
+          sleep 2
+          current=$( (displayplacer list || true) | grep -e '<-- current mode' || true)
+          echo "$current"
+          [[ "$current" == *1920x1080* ]]
+          # Overlay scroll bars, as with a trackpad (the runner has no input devices, so it shows legacy ones).
+          defaults write -g AppleShowScrollBars -string WhenScrolling
+
+      - name: Clock
+        # Quick Add reads "thursday" against the system clock (NSDataDetector has no reference date), so the
+        # runner's clock goes to the demo's pinned "now" (Tuesday 6 October 2026, 13:50) while the shots run.
+        run: |
+          sudo systemsetup -setusingnetworktime off > /dev/null 2>&1 || true
+          sudo date 1006135026
+          date
+
       - name: Capture
-        run: scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
+        run: |
+          scripts/screenshots/capture.sh build/DerivedData/Build/Products/Release/Ithil.app docs/images
+          date
+
+      - name: Restore the clock
+        if: always()
+        run: |
+          sudo systemsetup -setusingnetworktime on > /dev/null 2>&1 || true
+          sudo sntp -sS time.apple.com > /dev/null 2>&1 || true
+          date
 
       - name: Upload
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: screenshots
-          path: docs/images/*.png
+          path: |
+            docs/images/*.png
+            build/screenshot-logs
+          if-no-files-found: ignore
 
       - name: Commit screenshots
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/screenshots/keep-unchanged.sh docs/images
           git add docs/images/*.png
           if git diff --cached --quiet; then
             echo "Screenshots unchanged."
             exit 0
           fi
           git commit -m "Update README screenshots"
+          # The branch may have moved on while the shots were taken.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

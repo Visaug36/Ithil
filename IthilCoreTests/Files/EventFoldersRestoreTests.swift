@@ -4,6 +4,7 @@ import Testing
 
 /// What a test disk did: where it wrote, what it removed, and where trashed items went.
 private final class RestoreDiskLog: @unchecked Sendable {
+    private let testTrash: TestTrash
     private let lock = NSLock()
     private var writtenURLs: [URL] = []
     private var removedURLs: [URL] = []
@@ -15,8 +16,12 @@ private final class RestoreDiskLog: @unchecked Sendable {
     var removed: [URL] { locked { removedURLs } }
     /// The items that were moved to the Trash, where they were.
     var trashed: [URL] { locked { trashedSources } }
-    /// Where trashed items ended up, so the test can delete them again.
+    /// Where trashed items ended up.
     var itemsInTrash: [URL] { locked { itemsInTrashURLs } }
+
+    init(trash: TestTrash) {
+        testTrash = trash
+    }
 
     func wrote(_ url: URL) {
         locked { writtenURLs.append(url) }
@@ -41,20 +46,22 @@ private final class RestoreDiskLog: @unchecked Sendable {
         return body()
     }
 
-    /// Trashes `url` on the real disk and records where it went.
+    /// Moves `url` to the test's own Trash and records where it went.
     func trash(_ url: URL) throws -> URL? {
-        var resultingItem: NSURL?
-        try FileManager.default.trashItem(at: url, resultingItemURL: &resultingItem)
-        let item = resultingItem.map { $0 as URL }
+        let item = try testTrash.trash(url)
         trashedItem(url, to: item)
         return item
     }
 }
 
-/// The real disk, recording every change, and telling where trashed items went.
+/// The real disk, recording every change, and telling where trashed items went (in a `TestTrash`).
 private final class RestoreTestDisk: FileSystem, @unchecked Sendable {
-    let log = RestoreDiskLog()
+    let log: RestoreDiskLog
     private let base = LocalFileSystem()
+
+    init(trash: TestTrash) {
+        log = RestoreDiskLog(trash: trash)
+    }
 
     func fileExists(at url: URL) -> Bool { base.fileExists(at: url) }
     func isDirectory(at url: URL) -> Bool { base.isDirectory(at: url) }
@@ -99,8 +106,12 @@ private final class RestoreTestDisk: FileSystem, @unchecked Sendable {
 /// A file system that only offers `trashItem(at:)`, so `trashItemReturningURL(at:)` is the protocol's
 /// default.
 private final class TrashOnlyDisk: FileSystem, @unchecked Sendable {
-    let log = RestoreDiskLog()
+    let log: RestoreDiskLog
     private let base = LocalFileSystem()
+
+    init(trash: TestTrash) {
+        log = RestoreDiskLog(trash: trash)
+    }
 
     func fileExists(at url: URL) -> Bool { base.fileExists(at: url) }
     func isDirectory(at url: URL) -> Bool { base.isDirectory(at: url) }
@@ -124,7 +135,7 @@ private struct RestoreSandbox {
     let base: URL
     let root: URL
     let outside: URL
-    let disk = RestoreTestDisk()
+    let disk: RestoreTestDisk
     let folders: EventFolders
 
     init() throws {
@@ -134,14 +145,15 @@ private struct RestoreSandbox {
         outside = base.appending(component: "Outside", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: nil)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true, attributes: nil)
+        disk = RestoreTestDisk(trash: TestTrash(in: base))
         folders = EventFolders(root: root, fileSystem: disk)
     }
 
-    /// Deletes the temporary folder, and whatever a test left in the Trash.
+    /// The test's own Trash, inside the temporary folder.
+    var trash: TestTrash { TestTrash(in: base) }
+
+    /// Deletes the temporary folder, Trash included.
     func remove() {
-        for item in disk.log.itemsInTrash {
-            try? FileManager.default.removeItem(at: item)
-        }
         try? FileManager.default.removeItem(at: base)
     }
 
@@ -270,12 +282,7 @@ struct EventFoldersRestoreTests {
     @Test func fileSystemsThatCannotTellStillTrashTheFolder() async throws {
         let sandbox = try RestoreSandbox()
         defer { sandbox.remove() }
-        let disk = TrashOnlyDisk()
-        defer {
-            for item in disk.log.itemsInTrash {
-                try? FileManager.default.removeItem(at: item)
-            }
-        }
+        let disk = TrashOnlyDisk(trash: sandbox.trash)
         let folders = EventFolders(root: sandbox.root, fileSystem: disk)
         let lecture = Fixture.timed(1, "Physics Lecture", october: 6, at: 14)
         let occurrence = Fixture.occurrence(of: lecture, october: 6)
@@ -291,7 +298,8 @@ struct EventFoldersRestoreTests {
     @Test func localFileSystemSaysWhereTheTrashedItemWent() throws {
         let sandbox = try RestoreSandbox()
         defer { sandbox.remove() }
-        let file = sandbox.url("Syllabus.pdf")
+        // The real Trash, so a name no other test uses.
+        let file = sandbox.url("Syllabus \(UUID().uuidString).pdf")
         try Data("Week 1".utf8).write(to: file)
 
         let trashedItem = try LocalFileSystem().trashItemReturningURL(at: file)
