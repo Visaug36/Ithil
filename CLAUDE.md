@@ -80,6 +80,7 @@ Keep this section current. Newest first.
 
 ### Decisions
 - **Release (user, 2026-10-08):** publish v1.0.0 now, ad-hoc signed and not notarized.
+- **Tags come from the user:** this environment's proxy refuses tag pushes (403, policy), and the GitHub connector can't create tags or releases. The user publishes a release with a new `vX.Y.Z` tag on `main` from the Releases page (or pushes the tag); `release.yml` then attaches the build and the CHANGELOG notes to that release.
 - **Working mode (user, 2026-10-06):** "do everything yourself". Claude merges each finished phase into `main` itself (PR from `claude/laughing-ride-8gg5eo`, merge commit, after CI is green) and moves on to the next phase without waiting for the user to test. Still: never tag or publish v1.0.0 until the user says so.
 - **License / identity:** MIT, copyright "Visaug36" (the user didn't mind which name). Bundle ID `io.github.visaug36.Ithil`. Repo: https://github.com/Visaug36/Ithil, public from the start.
 - **Design source:** the user sent the design as a PDF instead of the zip. It lives only in `design-reference/Ithil.pdf` (git-ignored, along with renders). Containers are ephemeral, so if it's missing, ask the user to upload it again. `docs/DESIGN.md` must stay complete enough to build every screen without it.
@@ -118,7 +119,7 @@ Keep this section current. Newest first.
 - Merges made through GitHub carry the account's name and email. The user can turn on "Keep my email addresses private" in GitHub's email settings to use the noreply address for future ones.
 
 ### Status
-- 2026-10-08: **v1.0.0 release**: the user said to publish. CHANGELOG dated 2026-10-08; the tag goes on `main` once this is merged.
+- 2026-10-08: **v1.0.0 release**: the user said to publish. Merged in https://github.com/Visaug36/Ithil/pull/8 (CHANGELOG dated 2026-10-08, CI archives like a release). Pushing the tag from here was refused (403), so the user makes the `v1.0.0` tag from the Releases page.
 - 2026-10-08: **Phase 6 merged** (https://github.com/Visaug36/Ithil/pull/7): README with real screenshots, String Catalog check in CI, version 1.0.0, Screenshots workflow, time grid scroll fix, file tests in their own Trash. CI green: 326 tests, zero warnings, universal build. v1.0.0 is ready but not tagged: waiting for the user's go-ahead (then update the CHANGELOG date, tag `v1.0.0`, and the release workflow publishes it).
 - 2026-10-07: **Phase 5 done, CI green** (326 tests, zero warnings, universal build): menu bar, global hotkey, onboarding, launch at login, undo/redo, drag to move and resize, Delete and ⌘F, About and Help, Increase Contrast, Liquid Glass rim on Quick Add.
 - 2026-10-07: **Phases 3 and 4 merged** (https://github.com/Visaug36/Ithil/pull/5): notifications and files in the app, plus the Phase 6 release tooling and community files. CI green: 312 tests, zero warnings, universal build. Next: Phase 5 (polish).

@@ -97,8 +97,12 @@ Do this whole pass on a real Mac before tagging a release. Use a **fresh macOS u
 
 ## 9. Release
 
-- [ ] Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-- [ ] The Release workflow publishes `Ithil-X.Y.Z.zip` and `Ithil-X.Y.Z.zip.sha256` with the changelog notes.
+- [ ] Make the `vX.Y.Z` tag on `main`, either way:
+      - On GitHub: **Releases → Draft a new release → Choose a tag**, type `vX.Y.Z`, pick **Create new tag on
+        publish** with `main` as the target, then **Publish release** (title and notes can stay empty).
+      - In Terminal: `git tag -a vX.Y.Z -m "Ithil X.Y.Z" origin/main && git push origin vX.Y.Z`.
+- [ ] The Release workflow (Actions tab, about 15 minutes) attaches `Ithil-X.Y.Z.zip` and
+      `Ithil-X.Y.Z.zip.sha256` and the changelog notes.
 - [ ] Download the zip on a clean Mac, check the checksum (`shasum -a 256 -c Ithil-X.Y.Z.zip.sha256`), and launch
       it. Without notarization you'll need System Settings → Privacy & Security → Open Anyway.
 

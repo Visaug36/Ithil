@@ -1,6 +1,8 @@
 name: Release
 
 # Builds a universal Release of Ithil when a vX.Y.Z tag is pushed and publishes it as a GitHub Release.
+# The tag can also come from GitHub's Releases page ("Draft a new release", a new vX.Y.Z tag on main, Publish):
+# then the build and the CHANGELOG notes are added to that release.
 # Ad-hoc signed by default. When the Developer ID secrets below are set, the app is signed with Developer ID,
 # notarized and stapled instead (see docs/RELEASE_CHECKLIST.md, "Signing and notarization").
 #
@@ -14,9 +16,17 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  # A release published on the Releases page (its new tag may also start a push run; see concurrency).
+  release:
+    types: [published]
 
 permissions:
   contents: write
+
+# One run per tag: when a Releases-page release starts both a push and a release run, the newer one wins.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
 
 env:
   XCODE_MAJOR: "26"
@@ -144,10 +154,17 @@ jobs:
         run: |
           set -euo pipefail
           zip="${{ steps.package.outputs.zip }}"
-          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
-            --title "Ithil ${{ steps.version.outputs.version }}" \
-            --notes-file build/release/notes.md \
-            --verify-tag
+          title="Ithil ${{ steps.version.outputs.version }}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # Published on the Releases page, which made the tag: add the files and the CHANGELOG notes to it.
+            gh release upload "$GITHUB_REF_NAME" "$zip" "$zip.sha256" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file build/release/notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
+              --title "$title" \
+              --notes-file build/release/notes.md \
+              --verify-tag
+          fi
 
       - name: Remove signing keychain
         if: always() && steps.signing.outputs.mode == 'developer-id'
